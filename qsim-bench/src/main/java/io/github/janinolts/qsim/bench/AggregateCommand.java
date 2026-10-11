@@ -109,7 +109,9 @@ final class AggregateCommand {
         String candidateVersion = data.rounds().isEmpty()
                 ? data.environments().stream().map(Environment::candidateVersion).findFirst().orElse("")
                 : data.rounds().get(0).candidateVersion();
-        Ledger ledger = Ledger.forLine(Ledger.lineOf(candidateVersion));
+        Ledger ledger = candidateVersion.isEmpty()
+                ? Ledger.forLine(Ledger.lineOf(candidateVersion))
+                : Ledger.forVersion(candidateVersion);
 
         Set<UnitKey> measured = new LinkedHashSet<>();
         for (Aggregator.PointResult r : results) {

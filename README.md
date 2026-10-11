@@ -98,9 +98,11 @@ the same units with and without it.
 
 The known differences are in `qsim-harness/src/main/resources/ledger/<line>/known-differences.tsv`,
 one file per development line of the candidate: `3.1.x` for 3.1 versions, `master` for all
-others. Each entry has a unit key (with `*`), a pair, a kind, an ID, a note and optionally feature
-tags. A run fails on a difference without an entry and on an entry whose unit ran without the
-difference. An ID `#N` is an issue of janino-lts/janino; the reports print it as
+others. Each entry has a unit key (with `*`), a pair, a kind, an ID, a note, optionally feature
+tags and optionally the version that fixed the difference. An entry with such a version applies
+only to candidates before it (a snapshot of the version counts as fixed), so that the ledger of a
+line serves its releases before and after the fix. A run fails on a difference without an entry
+and on an entry whose unit ran without the difference. An ID `#N` is an issue of janino-lts/janino; the reports print it as
 `janino-lts/janino#N`, so that it does not refer to the issues of the repository that runs qsim.
 Other IDs, e.g. `S-04`, are entries of the register of deviations of janino-lts. Change the
 ledger deliberately, by a pull request.

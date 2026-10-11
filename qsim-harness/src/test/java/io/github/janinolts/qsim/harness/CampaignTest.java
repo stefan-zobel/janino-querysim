@@ -56,7 +56,7 @@ class CampaignTest {
                 Workloads.STYLES, List.of(Profile.values()), Campaign.Variants.ONE, true);
         Campaign.Result result = Campaign.run(runner, RandomPlans.withDefaults(), Campaign.units(settings),
                 Runtime.getRuntime().availableProcessors());
-        Ledger ledger = Ledger.forLine(Ledger.lineOf(runner.backends().candidate().version()));
+        Ledger ledger = Ledger.forVersion(runner.backends().candidate().version());
         CorrectnessRun run = CorrectnessRun.of("campaign", runner.backends(), ledger, result.outcomes())
                 .with(result.inconsistencies(), Map.of());
         Path dir = Path.of("target", "qsim-reports",
@@ -118,7 +118,7 @@ class CampaignTest {
                 Campaign.Variants.NONE, false, List.of(Variant.TRY_JUMPS));
         Campaign.Result result = Campaign.run(runner, RandomPlans.withDefaults(), Campaign.units(settings),
                 Runtime.getRuntime().availableProcessors());
-        Ledger ledger = Ledger.forLine(Ledger.lineOf(runner.backends().candidate().version()));
+        Ledger ledger = Ledger.forVersion(runner.backends().candidate().version());
         CorrectnessRun run = CorrectnessRun.of("campaign", runner.backends(), ledger, result.outcomes());
 
         assertEquals(List.of(), result.inconsistencies());

@@ -1,6 +1,6 @@
 # Known differences of the development line master of the candidate.
 #
-# One entry per line, five tab-separated columns:
+# One entry per line, five to seven tab-separated columns:
 #   unit key    workload/style/profile/configHash; '*' matches any text
 #   pair        JAVAC:JLTS or J3112:JLTS (INTERP:JAVAC is a defect of qsim and cannot be entered)
 #   kind        WRONG, INVALID, REJECTED, BYTES, LOCATION or ALLOC
@@ -8,6 +8,8 @@
 #   note        a short explanation
 #   tags        optional: feature tags, comma-separated, that the unit must have; such an entry covers the
 #               random units of a code pattern, and a run without such a unit does not orphan it
+#   fixed       optional: the version of the candidate that fixed the difference (the column tags may be empty);
+#               the entry applies only to candidates before it, and a snapshot of that version counts as fixed
 #
 # A run fails on a difference without an entry and on an entry whose unit ran without the difference.
 # Change this file deliberately, by a pull request.
@@ -20,5 +22,5 @@ Q_DECIMAL:*/OPERATOR_CLASSES/*	J3112:JLTS	BYTES	#87	master writes the class flag
 */ENUMERABLE/*	J3112:JLTS	BYTES	#73	master writes InnerClasses and EnclosingMethod for anonymous classes and the class flags of member types (#87) as javac does; level L2, the instructions are unchanged
 seed:*/OPERATOR_CLASSES/*	J3112:JLTS	BYTES	#87	master writes the class flags of member types as javac does (the static nested Accumulator class of an aggregation in a random plan); level L2, the instructions are unchanged	member-class
 seed:*	J3112:JLTS	BYTES	#73	master writes InnerClasses and EnclosingMethod for local classes as javac does (the local classes of language features in random plans); level L2, the instructions are unchanged	local-class
-seed:*/EXPRESSION/*	JAVAC:JLTS	REJECTED	#138	a script rejects the declaration of a local variable of a generic array type at its top level ("IDENTIFIER expected instead of '['"), so the expected result of G-09 is missing	script-generic-array
-seed:*/EXPRESSION/*	J3112:JLTS	REJECTED	#138	the same in 3.1.12: a script rejects the declaration of a local variable of a generic array type at its top level	script-generic-array
+seed:*/EXPRESSION/*	JAVAC:JLTS	REJECTED	#138	a script rejects the declaration of a local variable of a generic array type at its top level ("IDENTIFIER expected instead of '['"), so the expected result of G-09 is missing	script-generic-array	3.2.0
+seed:*/EXPRESSION/*	J3112:JLTS	REJECTED	#138	3.1.12 rejects in a script the declaration of a local variable of a generic array type at its top level, so the expected result of G-09 is missing (the candidate did so as well before the fix)	script-generic-array

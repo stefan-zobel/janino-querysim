@@ -16,6 +16,7 @@
 
 package io.github.janinolts.qsim.harness;
 
+import io.github.janinolts.qsim.plan.LanguageFeature;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,12 +40,14 @@ import java.util.regex.Pattern;
 /**
  * The known differences of one development line of the candidate, from a file
  * {@code known-differences.tsv}: one entry per line, tab-separated, with the
- * columns unit key, pair, kind, ID and note, and optionally feature tags;
- * empty lines and lines starting with {@code #} are ignored. The unit key may
- * contain {@code *}, which matches any text, so that one entry can cover the
- * variants of a unit. An entry with feature tags applies only to units that
- * have all of them: one entry covers the random units of a code pattern, and
- * a run without such a unit does not orphan it.
+ * columns unit key, pair, kind, ID and note, optionally feature tags and
+ * optionally the version that fixed the difference; empty lines and lines
+ * starting with {@code #} are ignored. The unit key may contain {@code *},
+ * which matches any text, so that one entry can cover the variants of a unit.
+ * An entry with feature tags applies only to units that have all of them: one
+ * entry covers the random units of a code pattern, and a run without such a
+ * unit does not orphan it. An entry with a fixed version applies only to
+ * candidates before that version, see {@link #applicableTo(String)}.
  * <p>
  * A check fails in both directions: on a difference that no entry explains,
  * and on an entry that explains no difference although its unit ran. The
@@ -77,10 +80,12 @@ public record Ledger(String line, List<Ledger.Entry> entries) {
      *        {@code #2} or {@code S-04}
      * @param note a short explanation
      * @param tags the feature tags that a unit must have, or none
+     * @param fixed the version of the candidate that fixed the difference, or
+     *        {@code null}; a snapshot of that version counts as fixed
      * @param lineNumber the line in the file, for messages
      */
     public record Entry(String keyPattern, Difference.Pair pair, Difference.Kind kind, String id, String note,
-            List<String> tags, int lineNumber) {
+            List<String> tags, String fixed, int lineNumber) {
 
         public Entry {
             Objects.requireNonNull(keyPattern, "keyPattern");
@@ -96,6 +101,18 @@ public record Ledger(String line, List<Ledger.Entry> entries) {
             if (id.isBlank()) {
                 throw new IllegalArgumentException("Line " + lineNumber + ": an entry needs an ID");
             }
+            if (fixed != null) {
+                try {
+                    LanguageFeature.compareVersions(fixed, fixed);
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException("Line " + lineNumber + ": " + e.getMessage(), e);
+                }
+            }
+        }
+
+        /** Tells whether this entry applies to a candidate version: always, or if the version is before the fix. */
+        public boolean appliesTo(String candidateVersion) {
+            return fixed == null || LanguageFeature.compareVersions(candidateVersion, fixed) < 0;
         }
 
         /** Tells whether a unit key matches the pattern of this entry; the tags are not checked. */
@@ -134,13 +151,14 @@ public record Ledger(String line, List<Ledger.Entry> entries) {
         /** Describes the entry in Markdown, for the reports. */
         public String markdown() {
             return "`" + keyPattern + "` " + pair.label() + " " + kind + " " + markdownReference() + ": " + note
-                    + (tags.isEmpty() ? "" : " (tags " + String.join(", ", tags) + ")") + "; line " + lineNumber;
+                    + (tags.isEmpty() ? "" : " (tags " + String.join(", ", tags) + ")")
+                    + (fixed == null ? "" : " (fixed in " + fixed + ")") + "; line " + lineNumber;
         }
 
         @Override
         public String toString() {
             return "line " + lineNumber + ": " + keyPattern + " " + pair.label() + " " + kind + " " + reference() + " "
-                    + note + (tags.isEmpty() ? "" : " " + tags);
+                    + note + (tags.isEmpty() ? "" : " " + tags) + (fixed == null ? "" : " fixed in " + fixed);
         }
 
         private static Pattern toRegex(String glob) {
@@ -166,6 +184,23 @@ public record Ledger(String line, List<Ledger.Entry> entries) {
     /** Returns the development line of a candidate version: {@code 3.1.x} for 3.1 versions, else {@code master}. */
     public static String lineOf(String candidateVersion) {
         return candidateVersion.startsWith("3.1.") ? LINE_3_1_X : LINE_MASTER;
+    }
+
+    /**
+     * Loads the ledger of a candidate version from the resources of qsim: the
+     * ledger of its development line, with the entries that apply to it.
+     */
+    public static Ledger forVersion(String candidateVersion) {
+        return forLine(lineOf(candidateVersion)).applicableTo(candidateVersion);
+    }
+
+    /**
+     * Returns the ledger without the entries whose difference the candidate
+     * version has fixed: such an entry would be orphaned by every run of a
+     * later candidate, while an earlier candidate still needs it.
+     */
+    public Ledger applicableTo(String candidateVersion) {
+        return new Ledger(line, entries.stream().filter(e -> e.appliesTo(candidateVersion)).toList());
     }
 
     /** Loads the ledger of a development line from the resources of qsim. */
@@ -202,21 +237,22 @@ public record Ledger(String line, List<Ledger.Entry> entries) {
                     continue;
                 }
                 String[] columns = s.split("\t", -1);
-                if (columns.length != 5 && columns.length != 6) {
-                    throw new IllegalArgumentException("Line " + number + ": expected 5 or 6 tab-separated columns, "
+                if (columns.length < 5 || columns.length > 7) {
+                    throw new IllegalArgumentException("Line " + number + ": expected 5 to 7 tab-separated columns, "
                             + "found " + columns.length);
                 }
                 List<String> tags = new ArrayList<>();
-                if (columns.length == 6) {
+                if (columns.length >= 6) {
                     for (String tag : columns[5].split(",")) {
                         if (!tag.isBlank()) {
                             tags.add(tag.strip());
                         }
                     }
                 }
+                String fixed = columns.length == 7 && !columns[6].isBlank() ? columns[6].strip() : null;
                 entries.add(new Entry(columns[0].strip(), Difference.Pair.ofLabel(columns[1].strip()),
                         Difference.Kind.valueOf(columns[2].strip()), columns[3].strip(), columns[4].strip(), tags,
-                        number));
+                        fixed, number));
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);

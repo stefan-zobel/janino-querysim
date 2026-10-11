@@ -41,7 +41,7 @@ class CorrectnessSuiteTest {
         DifferentialRunner runner = new DifferentialRunner(
                 new DifferentialRunner.Backends(all.get(0), all.get(1), all.get(2)),
                 CorrectnessSuiteTest.class.getClassLoader());
-        Ledger ledger = Ledger.forLine(Ledger.lineOf(all.get(2).version()));
+        Ledger ledger = Ledger.forVersion(all.get(2).version());
 
         CorrectnessRun run = CorrectnessRun.run("smoke", runner, ledger, Workloads.smoke());
 
@@ -58,7 +58,7 @@ class CorrectnessSuiteTest {
         DifferentialRunner runner = new DifferentialRunner(
                 new DifferentialRunner.Backends(all.get(0), all.get(1), all.get(2)),
                 CorrectnessSuiteTest.class.getClassLoader());
-        Ledger ledger = Ledger.forLine(Ledger.lineOf(all.get(2).version()));
+        Ledger ledger = Ledger.forVersion(all.get(2).version());
 
         CorrectnessRun run = CorrectnessRun.run("regression", runner, ledger,
                 Workloads.regression(ledger, RandomPlans.withDefaults()));

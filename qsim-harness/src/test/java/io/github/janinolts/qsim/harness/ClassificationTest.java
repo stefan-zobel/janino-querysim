@@ -28,6 +28,7 @@ import io.github.janinolts.qsim.harness.RunResult.Status;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import org.junit.jupiter.api.Test;
 
@@ -121,5 +122,36 @@ class ClassificationTest {
         // The ledgers of qsim parse.
         assertEquals("3.1.x", Ledger.forLine("3.1.x").line());
         assertEquals("master", Ledger.forLine("master").line());
+    }
+
+    @Test
+    void ledgerEntriesOfFixedDifferences() {
+        Ledger ledger = Ledger.parse("3.1.x", "seed:*\tJAVAC:JLTS\tREJECTED\t#138\tfixed\t\t3.1.20\n"
+                + "seed:*\tJ3112:JLTS\tREJECTED\t#138\tnot fixed\tscript-generic-array\t\n");
+        Ledger.Entry fixed = ledger.entries().get(0);
+        assertEquals("3.1.20", fixed.fixed());
+        assertEquals(List.of(), fixed.tags());
+        assertNull(ledger.entries().get(1).fixed());
+        assertTrue(fixed.appliesTo("3.1.19"));
+        assertFalse(fixed.appliesTo("3.1.20"));
+        // A snapshot of the version contains the fix.
+        assertFalse(fixed.appliesTo("3.1.20-SNAPSHOT"));
+        assertFalse(fixed.appliesTo("3.2.0-SNAPSHOT"));
+        assertEquals(2, ledger.applicableTo("3.1.19").entries().size());
+        assertEquals(List.of("not fixed"),
+                ledger.applicableTo("3.1.20").entries().stream().map(Ledger.Entry::note).toList());
+        assertTrue(fixed.toString().endsWith("fixed in 3.1.20"));
+        assertTrue(fixed.markdown().contains("(fixed in 3.1.20)"));
+        assertThrows(IllegalArgumentException.class,
+                () -> Ledger.parse("3.1.x", "x\tJ3112:JLTS\tWRONG\t#1\tnote\t\tsoon\n"));
+        assertThrows(IllegalArgumentException.class,
+                () -> Ledger.parse("3.1.x", "x\tJ3112:JLTS\tWRONG\t#1\tnote\t\t3.1.20\textra\n"));
+        // The entry of #138 for the pair JAVAC:JLTS applies to 3.1.19, not to the snapshots with the fix.
+        Predicate<Ledger> hasJavacEntry = l -> l.entries().stream()
+                .anyMatch(e -> e.id().equals("#138") && e.pair() == Difference.Pair.JAVAC_JLTS);
+        assertTrue(hasJavacEntry.test(Ledger.forVersion("3.1.19")));
+        assertFalse(hasJavacEntry.test(Ledger.forVersion("3.1.20-SNAPSHOT")));
+        assertFalse(hasJavacEntry.test(Ledger.forVersion("3.2.0-SNAPSHOT")));
+        assertEquals("master", Ledger.forVersion("3.2.0-SNAPSHOT").line());
     }
 }

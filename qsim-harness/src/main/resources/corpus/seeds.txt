@@ -9,4 +9,4 @@
 192 WHOLE_STAGE STRICT BASE  # a split projection over fields and locals lacked the locals as parameters (a defect of qsim, fixed in M7)
 351 WHOLE_STAGE STRICT BASE  # a limit below a join ended the loop over the matches of its last row (a defect of qsim, fixed in M7)
 54 WHOLE_STAGE STRICT BASE  # a limit above a join: since 3.1.16, another order of the constant pool (#54 in the ledger 3.1.x)
-7 EXPRESSION LENIENT BASE  # G-09 at the top level of a script: Janino rejects the declaration of a local variable of a generic array type (#138 in both ledgers)
+7 EXPRESSION LENIENT BASE  # G-09 at the top level of a script: Janino rejects the declaration of a local variable of a generic array type (#138 in both ledgers; the candidate accepts it since 3.1.20)

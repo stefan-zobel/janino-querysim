@@ -53,9 +53,9 @@ final class Backends implements AutoCloseable {
         return runner;
     }
 
-    /** Returns the ledger of the development line of the candidate. */
+    /** Returns the ledger of the candidate: the ledger of its development line, with the entries that apply to it. */
     Ledger ledger() {
-        return Ledger.forLine(Ledger.lineOf(candidate.version()));
+        return Ledger.forVersion(candidate.version());
     }
 
     /**
