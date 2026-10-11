@@ -1,0 +1,4 @@
+# Line endings in the repository are LF; the Maven wrapper must keep them on every system.
+* text=auto
+mvnw text eol=lf
+*.cmd text eol=crlf

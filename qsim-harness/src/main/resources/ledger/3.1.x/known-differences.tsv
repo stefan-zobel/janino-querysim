@@ -1,0 +1,18 @@
+# Known differences of the development line 3.1.x of the candidate.
+#
+# One entry per line, five tab-separated columns:
+#   unit key    workload/style/profile/configHash; '*' matches any text
+#   pair        JAVAC:JLTS or J3112:JLTS (INTERP:JAVAC is a defect of qsim and cannot be entered)
+#   kind        WRONG, INVALID, REJECTED, BYTES, LOCATION or ALLOC
+#   id          an issue number (#2) or an ID of the register of deviations (S-04)
+#   note        a short explanation
+#   tags        optional: feature tags, comma-separated, that the unit must have; such an entry covers the
+#               random units of a code pattern, and a run without such a unit does not orphan it
+#
+# A run fails on a difference without an entry and on an entry whose unit ran without the difference.
+# Change this file deliberately, by a pull request.
+seed:*	J3112:JLTS	BYTES	#3	the random units of the variant TRY_JUMPS: since 3.1.14 the exception table no longer covers the copy of a finally block that runs before a break out of the try block (3.1.12 would run the finally block twice if that copy threw); level L3, the instructions are unchanged	try-jump
+seed:*/WHOLE_STAGE/*	J3112:JLTS	BYTES	#54	since 3.1.16 the condition of a for loop is compiled before its body (loop bodies get the stack map of the branch into them), so a field that the condition reads first comes earlier in the constant pool; level L2, the instructions are unchanged	loop-flag
+seed:*/EXPRESSION/*	JAVAC:JLTS	REJECTED	#138	a script rejects the declaration of a local variable of a generic array type at its top level ("IDENTIFIER expected instead of '['"), so the expected result of G-09 is missing	script-generic-array
+seed:*/EXPRESSION/*	J3112:JLTS	REJECTED	#138	the same in 3.1.12: a script rejects the declaration of a local variable of a generic array type at its top level	script-generic-array
+series:tryJumps:*/WHOLE_STAGE/*	J3112:JLTS	BYTES	#3	since 3.1.14 the exception table no longer covers the copy of a finally block that runs before a break out of the try block (3.1.12 would run the finally block twice if that copy threw); level L3, the instructions are unchanged	try-jump

@@ -1,0 +1,33 @@
+/*
+ * Copyright 2026 the janino-querysim authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package io.github.janinolts.qsim.runtime;
+
+/**
+ * A generated aggregation in the style of operator classes: creates the
+ * accumulator of a group, adds rows to it, and computes the aggregated values.
+ */
+public interface AggregateHandler {
+
+    /** Returns a new accumulator for a group without rows. */
+    Object createAccumulator();
+
+    /** Adds a row to an accumulator. */
+    void accumulate(Object accumulator, Object[] row);
+
+    /** Returns the values of the aggregate functions, in order. */
+    Object[] getValue(Object accumulator);
+}

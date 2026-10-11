@@ -1,0 +1,325 @@
+# Runs the suites and measurements of qsim: Java code in the style of query engines, compiled with a baseline version
+# of Janino, a candidate version of janino-lts and javac; the results, class files and compile times are compared.
+#
+# Four jobs, in this order:
+#  * "build" builds qsim with Maven and runs its own unit tests (with the Janino versions of the POM). It resolves the
+#    candidate: "latest-3.1.x" is the last released 3.1.x version on Maven Central; a fixed version is taken as it is;
+#    with "candidate-ref", it builds janino-lts/janino at that ref with JDK 25 and installs it into the local Maven
+#    repository. It assembles "dist": qsim.jar and, next to it, the directories janino-baseline and janino-candidate
+#    with the JARs of each version and the adapter, and creates the matrix of the following jobs.
+#  * "correctness" runs the suites smoke, regression and campaign that "suites" names, on each Java version. It fails
+#    on a difference that the ledger of the candidate does not explain and on an orphaned ledger entry.
+#  * "performance" runs the measurements ("bench" in "suites"), one job per Java version and replica, each on a VM of
+#    its own; it uploads only raw data.
+#  * "report" combines the raw data of all replicas per Java version, writes the job summary and uploads the reports,
+#    the raw data and the reproducers as the artifact "qsim-reports". It fails if the allocation in xint exceeds the
+#    limit at a point without an ALLOC entry in the ledger, or if the class files of P8 are not at the expected level.
+#    Time ratios never fail the run; SLOWER, INCONCLUSIVE and INVALID are listed in the summary.
+#
+# The workflow runs only when started manually ("Actions" > "qsim" > "Run workflow"). It only reads the repository:
+# changes of the ledger are made by pull request.
+
+name: qsim
+
+run-name: qsim ${{ inputs.suites }}, candidate ${{ inputs.candidate-ref && format('from {0}', inputs.candidate-ref) || inputs.candidate }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: Baseline, a version of org.codehaus.janino:janino on Maven Central
+        type: string
+        default: '3.1.12'
+      candidate:
+        description: Candidate, latest-3.1.x or a version of io.github.janino-lts:janino on Maven Central
+        type: string
+        default: latest-3.1.x
+      candidate-ref:
+        description: Or build the candidate from this branch, tag or commit of janino-lts/janino (e.g. master); overrides candidate
+        type: string
+        default: ''
+      suites:
+        description: Comma-separated, from smoke, regression, campaign, bench
+        type: string
+        default: smoke,regression
+      java:
+        description: Java versions that run qsim, comma-separated, from 21 and 25
+        type: string
+        default: '21'
+      seeds:
+        description: Seeds of the suite campaign (all profiles, with negative programs)
+        type: string
+        default: 1..2000
+      campaign-options:
+        description: Further options of the suite campaign, e.g. --try-jumps (also run the variant TRY_JUMPS)
+        type: string
+        default: ''
+      measurements:
+        description: Measurements of the suite bench, comma-separated, from P1 to P10
+        type: string
+        default: P1,P8
+      points:
+        description: Optional filter on measurement points, comma-separated patterns with * (e.g. to confirm a finding)
+        type: string
+        default: ''
+      modes:
+        description: Modes of the measurements, comma-separated, from xint, c1, tiered
+        type: string
+        default: xint,tiered
+      replicas:
+        description: Runners per Java version for bench
+        type: string
+        default: '6'
+      forks:
+        description: Forks per replica
+        type: string
+        default: '3'
+      rounds:
+        description: Rounds per fork
+        type: string
+        default: '40'
+
+permissions:
+  contents: read
+
+# The inputs reach the scripts as environment variables, never as text inside a script.
+env:
+  QSIM_BASELINE: ${{ inputs.baseline }}
+  QSIM_CANDIDATE: ${{ inputs.candidate }}
+  QSIM_CANDIDATE_REF: ${{ inputs.candidate-ref }}
+  QSIM_SUITES: ${{ inputs.suites }}
+  QSIM_JAVA: ${{ inputs.java }}
+  QSIM_SEEDS: ${{ inputs.seeds }}
+  QSIM_CAMPAIGN_OPTIONS: ${{ inputs.campaign-options }}
+  QSIM_MEASUREMENTS: ${{ inputs.measurements }}
+  QSIM_POINTS: ${{ inputs.points }}
+  QSIM_MODES: ${{ inputs.modes }}
+  QSIM_REPLICAS: ${{ inputs.replicas }}
+  QSIM_FORKS: ${{ inputs.forks }}
+  QSIM_ROUNDS: ${{ inputs.rounds }}
+
+jobs:
+
+  build:
+    name: Build qsim and resolve the Janino versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      baseline: ${{ steps.baseline.outputs.version }}
+      candidate: ${{ steps.candidate.outputs.version }}
+      java: ${{ steps.matrix.outputs.java }}
+      replicas: ${{ steps.matrix.outputs.replicas }}
+      correctness: ${{ steps.matrix.outputs.correctness }}
+      bench: ${{ steps.matrix.outputs.bench }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the inputs and create the matrix
+        id: matrix
+        run: >
+          python3 .github/qsim/qsim_ci.py matrix --java "$QSIM_JAVA" --replicas "$QSIM_REPLICAS"
+          --suites "$QSIM_SUITES" --modes "$QSIM_MODES" --measurements "$QSIM_MEASUREMENTS"
+          >> "$GITHUB_OUTPUT"
+
+      - name: Check out janino-lts/janino at ${{ inputs.candidate-ref }}
+        if: env.QSIM_CANDIDATE_REF != ''
+        uses: actions/checkout@v7
+        with:
+          repository: janino-lts/janino
+          ref: ${{ inputs.candidate-ref }}
+          path: janino-lts
+
+      - name: Set up JDK 25 for janino-lts
+        if: env.QSIM_CANDIDATE_REF != ''
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Build janino-lts and install it into the local Maven repository
+        if: env.QSIM_CANDIDATE_REF != ''
+        run: mvn -B -ntp -f janino-lts/janino-parent/pom.xml install -DskipTests
+
+      - name: Resolve the baseline
+        id: baseline
+        run: python3 .github/qsim/qsim_ci.py coordinates "$QSIM_BASELINE" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Resolve the candidate
+        id: candidate
+        run: |
+          if [ -n "$QSIM_CANDIDATE_REF" ]; then
+            # Maven prints its errors to stdout; a command substitution would swallow them, so write the output to a
+            # file and print it if the command fails.
+            mvn -q -N -f janino-lts/janino-parent/pom.xml help:evaluate -Dexpression=project.version -DforceStdout \
+              > version.txt || { cat version.txt; exit 1; }
+            spec=$(cat version.txt)
+          else
+            spec=$QSIM_CANDIDATE
+          fi
+          python3 .github/qsim/qsim_ci.py coordinates "$spec" | tee -a "$GITHUB_OUTPUT"
+
+      # The JDK that builds qsim; set up last, so that it becomes JAVA_HOME.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Build qsim and run its unit tests
+        run: sh ./mvnw -B -ntp verify
+
+      - name: Assemble qsim.jar and the Janino versions
+        env:
+          BASELINE_VERSION: ${{ steps.baseline.outputs.version }}
+          BASELINE_GROUP: ${{ steps.baseline.outputs.group }}
+          CANDIDATE_VERSION: ${{ steps.candidate.outputs.version }}
+          CANDIDATE_GROUP: ${{ steps.candidate.outputs.group }}
+        run: |
+          mkdir dist
+          cp qsim-bench/target/qsim.jar dist/
+          copy() {
+            for artifact in janino commons-compiler; do
+              sh ./mvnw -B -ntp -q -N dependency:copy "-Dartifact=$2:$artifact:$3" "-DoutputDirectory=dist/$1"
+            done
+            cp qsim-backend-janino/target/qsim-backend-janino-*.jar "dist/$1/"
+          }
+          copy janino-baseline "$BASELINE_GROUP" "$BASELINE_VERSION"
+          copy janino-candidate "$CANDIDATE_GROUP" "$CANDIDATE_VERSION"
+          ls -l dist dist/janino-baseline dist/janino-candidate
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist
+          if-no-files-found: error
+
+  correctness:
+    name: Correctness on Java ${{ matrix.java }}
+    needs: build
+    if: needs.build.outputs.correctness == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ${{ fromJSON(needs.build.outputs.java) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/qsim
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Run the suites
+        run: >
+          python3 .github/qsim/qsim_ci.py suites --jar dist/qsim.jar --suites "$QSIM_SUITES" --seeds "$QSIM_SEEDS"
+          "--campaign-options=$QSIM_CAMPAIGN_OPTIONS" --out correctness
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: correctness-java${{ matrix.java }}
+          path: correctness
+          if-no-files-found: warn
+
+  performance:
+    name: Performance on Java ${{ matrix.java }}, replica ${{ matrix.replica }}
+    needs: build
+    if: needs.build.outputs.bench == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ${{ fromJSON(needs.build.outputs.java) }}
+        replica: ${{ fromJSON(needs.build.outputs.replicas) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/qsim
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      # No other step runs during the measurements; bench binds the forks to half of the cores (except P5).
+      - name: Measure
+        env:
+          REPLICA: java${{ matrix.java }}-r${{ matrix.replica }}
+        run: >
+          python3 .github/qsim/qsim_ci.py bench --jar dist/qsim.jar --replica "$REPLICA" --modes "$QSIM_MODES"
+          --measurements "$QSIM_MEASUREMENTS" --forks "$QSIM_FORKS" --rounds "$QSIM_ROUNDS" --points "$QSIM_POINTS"
+          --out results
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: bench-java${{ matrix.java }}-r${{ matrix.replica }}
+          path: results
+          if-no-files-found: warn
+
+  report:
+    name: Report
+    needs: [ build, correctness, performance ]
+    if: always() && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/qsim
+
+      # All artifacts, each into a directory of its own: dist (the JARs of the run), correctness-* and bench-*.
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Combine the replicas
+        id: aggregate
+        if: needs.build.outputs.bench == 'true'
+        continue-on-error: true
+        run: >
+          python3 .github/qsim/qsim_ci.py aggregate --jar artifacts/dist/qsim.jar --java "$QSIM_JAVA"
+          --artifacts artifacts --out reports
+
+      - name: Write the job summary
+        env:
+          QSIM_BASELINE_RESOLVED: ${{ needs.build.outputs.baseline }}
+          QSIM_CANDIDATE_RESOLVED: ${{ needs.build.outputs.candidate }}
+        run: >
+          python3 .github/qsim/qsim_ci.py summary --artifacts artifacts --reports reports
+          >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: qsim-reports
+          path: |
+            reports
+            artifacts
+          if-no-files-found: warn
+
+      - name: Fail if the allocation or the class files are not as expected
+        if: steps.aggregate.outcome == 'failure'
+        run: |
+          echo "The allocation in xint or the class files of P8 are not as expected; see the job summary."
+          exit 1

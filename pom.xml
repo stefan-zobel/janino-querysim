@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2026 the janino-querysim authors
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>io.github.janino-lts</groupId>
+	<artifactId>janino-querysim</artifactId>
+	<version>0.1.0-SNAPSHOT</version>
+	<packaging>pom</packaging>
+
+	<name>janino-querysim</name>
+	<description>Generates Java code in the style of query engines, compiles it with two Janino versions and javac,
+		and compares results, class files and compile times</description>
+	<url>https://github.com/janino-lts/janino-querysim</url>
+	<inceptionYear>2026</inceptionYear>
+
+	<licenses>
+		<license>
+			<name>Apache-2.0</name>
+			<url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
+	<modules>
+		<module>qsim-runtime</module>
+		<module>qsim-backend-api</module>
+		<module>qsim-plan</module>
+		<module>qsim-codegen</module>
+		<module>qsim-backend-janino</module>
+		<module>qsim-backend-javac</module>
+		<module>qsim-harness</module>
+		<module>qsim-bench</module>
+	</modules>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<!-- The simulator itself; qsim-runtime overrides this with release 8, because generated Java 8
+		     code is compiled against it. -->
+		<maven.compiler.release>21</maven.compiler.release>
+
+		<!-- The two Janino versions under comparison. The build copies their JARs, together with the
+		     adapter, to target/janino-baseline and target/janino-candidate of qsim-harness; at run time,
+		     -Dqsim.baseline.dir and -Dqsim.candidate.dir select other directories. Versions up to 3.1.14
+		     have the group ID org.codehaus.janino, later ones io.github.janino-lts. -->
+		<qsim.baseline.groupId>org.codehaus.janino</qsim.baseline.groupId>
+		<qsim.baseline.version>3.1.12</qsim.baseline.version>
+		<qsim.candidate.groupId>io.github.janino-lts</qsim.candidate.groupId>
+		<qsim.candidate.version>3.1.19</qsim.candidate.version>
+
+		<!-- The Janino API that the adapter is compiled against. janino-lts keeps the public API of
+		     3.1.12, so the same adapter runs with both versions. -->
+		<janino.api.version>3.1.12</janino.api.version>
+
+		<junit.version>6.1.3</junit.version>
+		<asm.version>9.10.1</asm.version>
+		<gson.version>2.14.0</gson.version>
+	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>io.github.janino-lts</groupId>
+				<artifactId>qsim-runtime</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.github.janino-lts</groupId>
+				<artifactId>qsim-backend-api</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.github.janino-lts</groupId>
+				<artifactId>qsim-plan</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.github.janino-lts</groupId>
+				<artifactId>qsim-codegen</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.github.janino-lts</groupId>
+				<artifactId>qsim-backend-javac</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.github.janino-lts</groupId>
+				<artifactId>qsim-harness</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.codehaus.janino</groupId>
+				<artifactId>janino</artifactId>
+				<version>${janino.api.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.codehaus.janino</groupId>
+				<artifactId>commons-compiler</artifactId>
+				<version>${janino.api.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.ow2.asm</groupId>
+				<artifactId>asm</artifactId>
+				<version>${asm.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.ow2.asm</groupId>
+				<artifactId>asm-tree</artifactId>
+				<version>${asm.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.ow2.asm</groupId>
+				<artifactId>asm-util</artifactId>
+				<version>${asm.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.google.code.gson</groupId>
+				<artifactId>gson</artifactId>
+				<version>${gson.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.junit</groupId>
+				<artifactId>junit-bom</artifactId>
+				<version>${junit.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-clean-plugin</artifactId>
+					<version>3.2.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-resources-plugin</artifactId>
+					<version>3.5.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<version>3.16.0</version>
+					<configuration>
+						<compilerArgs>
+							<arg>-Xlint:all,-options,-processing</arg>
+						</compilerArgs>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-surefire-plugin</artifactId>
+					<version>3.6.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-jar-plugin</artifactId>
+					<version>3.5.1</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-install-plugin</artifactId>
+					<version>3.1.4</version>
+				</plugin>
+				<!-- Copies the JARs of each Janino version, and the adapter, to a directory of its own:
+				     target/janino-baseline and target/janino-candidate of the module that declares the plugin.
+				     In a reactor build, the adapter must be packaged before, so run at least "verify". -->
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-dependency-plugin</artifactId>
+					<version>3.11.0</version>
+					<executions>
+						<execution>
+							<id>copy-janino-baseline</id>
+							<phase>process-test-resources</phase>
+							<goals>
+								<goal>copy</goal>
+							</goals>
+							<configuration>
+								<outputDirectory>${project.build.directory}/janino-baseline</outputDirectory>
+								<overWriteSnapshots>true</overWriteSnapshots>
+								<artifactItems>
+									<artifactItem>
+										<groupId>${qsim.baseline.groupId}</groupId>
+										<artifactId>janino</artifactId>
+										<version>${qsim.baseline.version}</version>
+									</artifactItem>
+									<artifactItem>
+										<groupId>${qsim.baseline.groupId}</groupId>
+										<artifactId>commons-compiler</artifactId>
+										<version>${qsim.baseline.version}</version>
+									</artifactItem>
+									<artifactItem>
+										<groupId>io.github.janino-lts</groupId>
+										<artifactId>qsim-backend-janino</artifactId>
+										<version>${project.version}</version>
+									</artifactItem>
+								</artifactItems>
+							</configuration>
+						</execution>
+						<execution>
+							<id>copy-janino-candidate</id>
+							<phase>process-test-resources</phase>
+							<goals>
+								<goal>copy</goal>
+							</goals>
+							<configuration>
+								<outputDirectory>${project.build.directory}/janino-candidate</outputDirectory>
+								<overWriteSnapshots>true</overWriteSnapshots>
+								<artifactItems>
+									<artifactItem>
+										<groupId>${qsim.candidate.groupId}</groupId>
+										<artifactId>janino</artifactId>
+										<version>${qsim.candidate.version}</version>
+									</artifactItem>
+									<artifactItem>
+										<groupId>${qsim.candidate.groupId}</groupId>
+										<artifactId>commons-compiler</artifactId>
+										<version>${qsim.candidate.version}</version>
+									</artifactItem>
+									<artifactItem>
+										<groupId>io.github.janino-lts</groupId>
+										<artifactId>qsim-backend-janino</artifactId>
+										<version>${project.version}</version>
+									</artifactItem>
+								</artifactItems>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-shade-plugin</artifactId>
+					<version>3.6.2</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-enforcer-plugin</artifactId>
+					<version>3.6.3</version>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>enforce-build-environment</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireJavaVersion>
+									<version>[21,)</version>
+									<message>janino-querysim needs JDK 21 or later to build (set JAVA_HOME).</message>
+								</requireJavaVersion>
+								<requireMavenVersion>
+									<version>[3.9,)</version>
+								</requireMavenVersion>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

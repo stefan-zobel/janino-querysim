@@ -1,0 +1,24 @@
+# Known differences of the development line master of the candidate.
+#
+# One entry per line, five tab-separated columns:
+#   unit key    workload/style/profile/configHash; '*' matches any text
+#   pair        JAVAC:JLTS or J3112:JLTS (INTERP:JAVAC is a defect of qsim and cannot be entered)
+#   kind        WRONG, INVALID, REJECTED, BYTES, LOCATION or ALLOC
+#   id          an issue number (#2) or an ID of the register of deviations (S-04)
+#   note        a short explanation
+#   tags        optional: feature tags, comma-separated, that the unit must have; such an entry covers the
+#               random units of a code pattern, and a run without such a unit does not orphan it
+#
+# A run fails on a difference without an entry and on an entry whose unit ran without the difference.
+# Change this file deliberately, by a pull request.
+series:tryJumps:*/WHOLE_STAGE/*	J3112:JLTS	BYTES	#3	since 3.1.14 the exception table no longer covers the copy of a finally block that runs before a break out of the try block (3.1.12 would run the finally block twice if that copy threw); level L3, the instructions are unchanged	try-jump
+seed:*	J3112:JLTS	BYTES	#3	the random units of the variant TRY_JUMPS: since 3.1.14 the exception table no longer covers the copy of a finally block that runs before a break out of the try block (3.1.12 would run the finally block twice if that copy threw); level L3, the instructions are unchanged	try-jump
+*/WHOLE_STAGE/*	J3112:JLTS	BYTES	#87	master writes the class flags of member types as javac does (ACC_SUPER for the inner iterator class); level L2, the instructions are unchanged
+Q_AGG:*/OPERATOR_CLASSES/*	J3112:JLTS	BYTES	#87	master writes the class flags of member types as javac does (the static nested Accumulator class of the aggregation); level L2, the instructions are unchanged
+Q_JOIN_AGG:*/OPERATOR_CLASSES/*	J3112:JLTS	BYTES	#87	master writes the class flags of member types as javac does (the static nested Accumulator class of the aggregation); level L2, the instructions are unchanged
+Q_DECIMAL:*/OPERATOR_CLASSES/*	J3112:JLTS	BYTES	#87	master writes the class flags of member types as javac does (the static nested Accumulator class of the aggregation); level L2, the instructions are unchanged
+*/ENUMERABLE/*	J3112:JLTS	BYTES	#73	master writes InnerClasses and EnclosingMethod for anonymous classes and the class flags of member types (#87) as javac does; level L2, the instructions are unchanged
+seed:*/OPERATOR_CLASSES/*	J3112:JLTS	BYTES	#87	master writes the class flags of member types as javac does (the static nested Accumulator class of an aggregation in a random plan); level L2, the instructions are unchanged	member-class
+seed:*	J3112:JLTS	BYTES	#73	master writes InnerClasses and EnclosingMethod for local classes as javac does (the local classes of language features in random plans); level L2, the instructions are unchanged	local-class
+seed:*/EXPRESSION/*	JAVAC:JLTS	REJECTED	#138	a script rejects the declaration of a local variable of a generic array type at its top level ("IDENTIFIER expected instead of '['"), so the expected result of G-09 is missing	script-generic-array
+seed:*/EXPRESSION/*	J3112:JLTS	REJECTED	#138	the same in 3.1.12: a script rejects the declaration of a local variable of a generic array type at its top level	script-generic-array

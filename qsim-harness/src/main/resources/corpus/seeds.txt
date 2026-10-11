@@ -1,0 +1,12 @@
+# The regression corpus: random units that a campaign found remarkable.
+#
+# One unit per line: seed, style, profile, variant and, for a negative program, the mutation,
+# separated by spaces, e.g. "4711 WHOLE_STAGE STRICT BASE" or "4711 ENUMERABLE STRICT BASE UNKNOWN_NAME".
+# A '#' starts a comment. The units are generated with the default settings of the random plans.
+# The suite "regression" runs them together with every seed that the ledger names.
+306 WHOLE_STAGE LENIENT BASE  # a local variable of a language feature hid a field of the same name (a defect of qsim, fixed in M7)
+156 WHOLE_STAGE STRICT BASE  # a split projection declared a parameter twice for a column passed through twice (a defect of qsim, fixed in M7)
+192 WHOLE_STAGE STRICT BASE  # a split projection over fields and locals lacked the locals as parameters (a defect of qsim, fixed in M7)
+351 WHOLE_STAGE STRICT BASE  # a limit below a join ended the loop over the matches of its last row (a defect of qsim, fixed in M7)
+54 WHOLE_STAGE STRICT BASE  # a limit above a join: since 3.1.16, another order of the constant pool (#54 in the ledger 3.1.x)
+7 EXPRESSION LENIENT BASE  # G-09 at the top level of a script: Janino rejects the declaration of a local variable of a generic array type (#138 in both ledgers)
