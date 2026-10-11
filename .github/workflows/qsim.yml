@@ -121,7 +121,7 @@ jobs:
           --suites "$QSIM_SUITES" --modes "$QSIM_MODES" --measurements "$QSIM_MEASUREMENTS"
           >> "$GITHUB_OUTPUT"
 
-      - name: Check out janino-lts/janino at ${{ inputs.candidate-ref }}
+      - name: Check out janino-lts/janino at candidate-ref
         if: env.QSIM_CANDIDATE_REF != ''
         uses: actions/checkout@v7
         with:
@@ -195,7 +195,7 @@ jobs:
           if-no-files-found: error
 
   correctness:
-    name: Correctness on Java ${{ matrix.java }}
+    name: Correctness
     needs: build
     if: needs.build.outputs.correctness == 'true'
     runs-on: ubuntu-latest
@@ -232,7 +232,7 @@ jobs:
           if-no-files-found: warn
 
   performance:
-    name: Performance on Java ${{ matrix.java }}, replica ${{ matrix.replica }}
+    name: Performance
     needs: build
     if: needs.build.outputs.bench == 'true'
     runs-on: ubuntu-latest

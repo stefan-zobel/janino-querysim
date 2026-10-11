@@ -26,7 +26,7 @@
 	<name>janino-querysim</name>
 	<description>Generates Java code in the style of query engines, compiles it with two Janino versions and javac,
 		and compares results, class files and compile times</description>
-	<url>https://github.com/janino-lts/janino-querysim</url>
+	<url>https://github.com/stefan-zobel/janino-querysim</url>
 	<inceptionYear>2026</inceptionYear>
 
 	<licenses>
