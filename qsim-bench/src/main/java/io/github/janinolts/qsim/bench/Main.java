@@ -27,12 +27,14 @@ public final class Main {
             Usage: java -jar qsim.jar <command> [options]
 
               bench      [--mode xint,tiered] [--forks 3] [--rounds 40] [--round-millis 150]
-                         [--replica local] [--seed 1] [--points <pattern>,...] [--extended]
+                         [--min-rounds 8] [--point-seconds 240] [--replica local] [--seed 1]
+                         [--points <pattern>,...] [--extended]
                          [--fork-timeout-minutes 120] [--cold-forks 3] [--cold-rounds 10]
                          [--cold-timeout-seconds 600] [--limit-timeout-seconds 600] [--out results]
                          [P1 ... P10]
                          Measures in fresh JVMs and writes raw data to <out>/<replica>/;
-                         without measurements P1 and P8.
+                         without measurements P1 and P8. The measured rounds of a point
+                         end after --point-seconds, but not before --min-rounds.
               aggregate  [--delta 0.02] [--q 0.05] [--allocation-limit 1.01] [--out <dir>] <dir>...
                          Combines the raw data of all replicas and writes report-performance.md,
                          for P2 also scaling/*.csv and scaling/*.svg.

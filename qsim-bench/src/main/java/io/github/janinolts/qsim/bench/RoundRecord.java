@@ -46,6 +46,9 @@ package io.github.janinolts.qsim.bench;
  *        the JIT compiler settled
  * @param baselineVersion the version of the baseline
  * @param candidateVersion the version of the candidate
+ * @param plannedRounds the measured rounds that the fork planned for this
+ *        point, or 0 if unknown; fewer complete rounds mean that the time
+ *        budget of the point ended the measurement
  */
 public record RoundRecord(
         String measurement,
@@ -69,7 +72,18 @@ public record RoundRecord(
         int warmupRounds,
         boolean warmupCapped,
         String baselineVersion,
-        String candidateVersion) {
+        String candidateVersion,
+        int plannedRounds) {
+
+    /** A record without the planned rounds, e.g. of P4, whose rounds have no time budget. */
+    public RoundRecord(String measurement, String point, String unitKey, String mode, String replica, int fork,
+            int round, String arm, int position, long ops, double executedOps, long nanos, long cpuNanos,
+            long allocatedBytes, long gcMillis, long jitMillis, long involuntarySwitches, long stealTicks,
+            int warmupRounds, boolean warmupCapped, String baselineVersion, String candidateVersion) {
+        this(measurement, point, unitKey, mode, replica, fork, round, arm, position, ops, executedOps, nanos,
+                cpuNanos, allocatedBytes, gcMillis, jitMillis, involuntarySwitches, stealTicks, warmupRounds,
+                warmupCapped, baselineVersion, candidateVersion, 0);
+    }
 
     /** Returns the wall time per nominal operation. */
     public double nanosPerOp() {

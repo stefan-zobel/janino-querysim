@@ -120,7 +120,11 @@ order:
 | B' | Candidate in a second class loader | Negative control: B'/B must be 1 |
 | B+ | Candidate, which then waits actively for another 1/33 of its time | Positive control: B+/B must be about 1.03 |
 
-Rounds are grouped into forks (fresh JVMs), forks into replicas (machines). The report gives
+Rounds are grouped into forks (fresh JVMs), forks into replicas (machines). The measured rounds
+of a point have a time budget per fork (`--point-seconds 240`): once the next round would exceed
+it, the point ends, but not before `--min-rounds 8`. Only very slow points reach it, e.g. the
+highest levels of P2 in `xint`, where one compilation takes 10 to 25 seconds on a runner; the
+report notes the rounds of such a point. The report gives
 B/A with a 95 % interval and a classification: `SAME` (within 2 %), `FASTER` or `SLOWER` (selected
 by Benjamini-Hochberg, adjusted interval excludes 1, positive control detected, `xint` and the
 allocation agree), `INCONCLUSIVE` (anything else, with the minimum detectable difference) or

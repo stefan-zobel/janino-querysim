@@ -46,7 +46,8 @@ public final class ForkMain {
 
     /**
      * Arguments: {@code --measurement P1 --mode xint --replica r --fork 0
-     * --rounds 40 --round-millis 150 --seed 1 --out rounds.jsonl}, optionally
+     * --rounds 40 --round-millis 150 --seed 1 --min-rounds 8 --point-seconds 240
+     * --out rounds.jsonl}, optionally
      * {@code --points <patterns>} or {@code --points-file <file>} with one
      * point ID per line, and {@code --extended}.
      */
@@ -62,7 +63,9 @@ public final class ForkMain {
         }
         MeasurementLoop.Settings settings = new MeasurementLoop.Settings(args.getInt("rounds", 40),
                 args.getLong("round-millis", 150) * 1_000_000, 3,
-                args.getLong("max-warmup-seconds", 120) * 1_000_000_000, args.getLong("seed", 1));
+                args.getLong("max-warmup-seconds", 120) * 1_000_000_000, args.getLong("seed", 1),
+                Math.min(args.getInt("rounds", 40), args.getInt("min-rounds", 8)),
+                args.getLong("point-seconds", 240) * 1_000_000_000);
         String mode = args.get("mode", "tiered");
         String replica = args.get("replica", "local");
         int fork = args.getInt("fork", 0);

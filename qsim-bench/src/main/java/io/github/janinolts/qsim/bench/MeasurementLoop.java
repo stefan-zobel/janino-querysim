@@ -47,6 +47,12 @@ import java.util.function.Consumer;
  * compiler settles (its time per round falls below 2 % of the round), and
  * calibrates the number of operations per round so that an arm takes about
  * the target time, at least one operation.
+ * <p>
+ * The measured rounds of a point have a time budget: once the next round
+ * would exceed it, the measurement ends, but not before the minimum number
+ * of rounds. Only points whose operation takes far longer than the target
+ * time of a round reach the budget, e.g. the highest levels of P2 in
+ * {@code xint}, where one compilation takes up to 20 seconds.
  */
 public final class MeasurementLoop {
 
@@ -58,8 +64,39 @@ public final class MeasurementLoop {
      * @param minWarmupRounds the minimum number of warm-up rounds
      * @param maxWarmupNanos the maximum time of the warm-up
      * @param seed the seed of the order of the arms
+     * @param minRounds the number of measured rounds that the time budget
+     *        cannot cut
+     * @param pointNanos the time budget of the measured rounds of a point
      */
-    public record Settings(int rounds, long roundNanos, int minWarmupRounds, long maxWarmupNanos, long seed) {
+    public record Settings(int rounds, long roundNanos, int minWarmupRounds, long maxWarmupNanos, long seed,
+            int minRounds, long pointNanos) {
+
+        public Settings {
+            if (minRounds < 1) {
+                throw new IllegalArgumentException("The minimum number of rounds must be at least 1: " + minRounds);
+            }
+        }
+
+        /** The settings without a time budget. */
+        public Settings(int rounds, long roundNanos, int minWarmupRounds, long maxWarmupNanos, long seed) {
+            this(rounds, roundNanos, minWarmupRounds, maxWarmupNanos, seed, rounds, Long.MAX_VALUE);
+        }
+
+        /**
+         * Tells whether the measurement of a point continues after a number of
+         * complete rounds and the time they took: up to the number of rounds,
+         * and beyond the minimum only while the next round, as long as the
+         * average round so far, fits into the time budget.
+         */
+        boolean continueAfter(int completedRounds, long elapsedNanos) {
+            if (completedRounds >= rounds) {
+                return false;
+            }
+            if (completedRounds < minRounds) {
+                return true;
+            }
+            return elapsedNanos + (double) elapsedNanos / completedRounds <= pointNanos;
+        }
     }
 
     /**
@@ -156,7 +193,8 @@ public final class MeasurementLoop {
                 + "|" + point.id()).hashCode());
         String baselineVersion = operation.arms.a().version();
         String candidateVersion = operation.arms.b().version();
-        for (int round = 0; round < settings.rounds(); round++) {
+        long measurementStart = System.nanoTime();
+        for (int round = 0; settings.continueAfter(round, System.nanoTime() - measurementStart); round++) {
             List<Arm> order = new ArrayList<>(arms);
             for (int i = order.size() - 1; i > 0; i--) {
                 Collections.swap(order, i, random.nextInt(i + 1));
@@ -187,7 +225,7 @@ public final class MeasurementLoop {
                         round, arm.label(), position, ops, executed, nanos, cpu, alloc, gcMillis() - gc0,
                         jitMillis() - jit0, OsCounters.delta(switches0, OsCounters.involuntarySwitches()),
                         OsCounters.delta(steal0, OsCounters.stealTicks()), warmupRounds, capped, baselineVersion,
-                        candidateVersion));
+                        candidateVersion, settings.rounds()));
             }
         }
     }

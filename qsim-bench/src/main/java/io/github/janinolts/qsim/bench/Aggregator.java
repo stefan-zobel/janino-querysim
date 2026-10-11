@@ -199,7 +199,8 @@ public final class Aggregator {
     /** The estimates of one group, before the classification, which needs all groups. */
     private record Partial(RoundRecord first, Estimate ratio, Estimate negative, Estimate positive,
             Estimate allocation, Estimate reference, double expectedPositive, boolean unitsAreForks, int replicas, List<ForkSummary> forks,
-            boolean warmupCapped) {
+            boolean warmupCapped, int plannedRounds, int fewestRounds, int mostRounds,
+            int limitedForks) {
     }
 
     private static Partial estimate(RoundRecord first,
@@ -208,6 +209,11 @@ public final class Aggregator {
         // Per replica, the fork values of the estimates.
         List<List<double[]>> perReplica = new ArrayList<>();
         boolean warmupCapped = false;
+        // The forks whose time budget ended the measurement before the planned rounds.
+        int plannedRounds = 0;
+        int fewestRounds = Integer.MAX_VALUE;
+        int mostRounds = 0;
+        int limitedForks = 0;
         for (Map.Entry<String, Map<Integer, Map<Integer, Map<Arm, RoundRecord>>>> replica : replicas.entrySet()) {
             List<double[]> forkValues = new ArrayList<>();
             for (Map.Entry<Integer, Map<Integer, Map<Arm, RoundRecord>>> fork : replica.getValue().entrySet()) {
@@ -221,6 +227,7 @@ public final class Aggregator {
                 List<Double> reference = new ArrayList<>();
                 List<RoundRecord> plusRounds = new ArrayList<>();
                 List<RoundRecord> bRounds = new ArrayList<>();
+                int planned = 0;
                 for (Map<Arm, RoundRecord> round : fork.getValue().values()) {
                     if (!round.keySet().containsAll(Arm.CORE)) {
                         continue;
@@ -230,6 +237,7 @@ public final class Aggregator {
                     RoundRecord bp = round.get(Arm.B_PRIME);
                     RoundRecord plus = round.get(Arm.B_PLUS);
                     warmupCapped |= a.warmupCapped();
+                    planned = Math.max(planned, a.plannedRounds());
                     ba.add(Math.log(b.nanosPerOp() / a.nanosPerOp()));
                     negative.add(Math.log(bp.nanosPerOp() / b.nanosPerOp()));
                     allocation.add(Math.log(b.bytesPerOp() / a.bytesPerOp()));
@@ -246,6 +254,12 @@ public final class Aggregator {
                 }
                 if (ba.isEmpty()) {
                     continue;
+                }
+                if (ba.size() < planned) {
+                    plannedRounds = Math.max(plannedRounds, planned);
+                    fewestRounds = Math.min(fewestRounds, ba.size());
+                    mostRounds = Math.max(mostRounds, ba.size());
+                    limitedForks++;
                 }
                 double cap = cap(bRounds);
                 double positive = Math.log(cappedNanosPerOp(plusRounds, cap) / cappedNanosPerOp(bRounds, cap));
@@ -278,7 +292,8 @@ public final class Aggregator {
             }
         }
         return new Partial(first, estimate(units, 0), estimate(units, 1), estimate(units, 2), estimate(units, 3),
-                estimate(units, 5), estimate(units, 4).logMean(), unitsAreForks, perReplica.size(), summaries, warmupCapped);
+                estimate(units, 5), estimate(units, 4).logMean(), unitsAreForks, perReplica.size(), summaries, warmupCapped,
+                plannedRounds, fewestRounds, mostRounds, limitedForks);
     }
 
     /**
@@ -378,6 +393,11 @@ public final class Aggregator {
         }
         if (x.warmupCapped) {
             notes.add("warm-up capped");
+        }
+        if (x.plannedRounds > 0) {
+            notes.add("time budget: " + (x.fewestRounds == x.mostRounds ? "" : x.fewestRounds + " to ")
+                    + x.mostRounds + " of " + x.plannedRounds + " rounds in " + x.limitedForks + " of "
+                    + x.forks.size() + " forks");
         }
         RoundRecord f = x.first;
         return new PointResult(f.measurement(), f.point(), f.unitKey(), f.mode(), x.ratio, x.negative, x.positive,

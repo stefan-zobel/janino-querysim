@@ -170,6 +170,8 @@ final class BenchCommand {
                     command.addAll(List.of("--measurement", m, "--mode", mode.label(), "--replica", replica,
                             "--fork", Integer.toString(fork), "--rounds", args.get("rounds", "40"),
                             "--round-millis", args.get("round-millis", "150"), "--seed", args.get("seed", "1"),
+                            "--min-rounds", args.get("min-rounds", "8"),
+                            "--point-seconds", args.get("point-seconds", "240"),
                             "--points-file", pointsFile.toString(), "--out",
                             dir.resolve("rounds-" + name + ".jsonl").toString()));
                     if (extended) {
