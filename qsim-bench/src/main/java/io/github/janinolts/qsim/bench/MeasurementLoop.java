@@ -46,7 +46,10 @@ import java.util.function.Consumer;
  * {@code compile} of P3, is not. The warm-up repeats rounds until the JIT
  * compiler settles (its time per round falls below 2 % of the round), and
  * calibrates the number of operations per round so that an arm takes about
- * the target time, at least one operation.
+ * the target time, at least one operation. The arms of the compared versions
+ * execute the same number, after the time of {@code A}; the reference
+ * {@code J}, javac, has a number of its own, because it takes a multiple of
+ * the time of Janino in P1.
  * <p>
  * The measured rounds of a point have a time budget: once the next round
  * would exceed it, the measurement ends, but not before the minimum number
@@ -155,8 +158,10 @@ public final class MeasurementLoop {
             String replica, int fork, Consumer<RoundRecord> out) {
         List<Arm> arms = operation.arms();
 
-        // Warm-up and calibration.
+        // Warm-up and calibration: the operations per round of the reference J after its own time, of the
+        // other arms after the time of A.
         long ops = 1;
+        long opsJ = 1;
         int warmupRounds = 0;
         int settled = 0;
         boolean capped = false;
@@ -165,20 +170,26 @@ public final class MeasurementLoop {
             long jit0 = jitMillis();
             long roundNanos = 0;
             long nanosA = 0;
+            long nanosJ = 0;
             for (Arm arm : arms) {
-                Object prepared = operation.prepare(arm, ops);
+                long count = arm == Arm.J ? opsJ : ops;
+                Object prepared = operation.prepare(arm, count);
                 long start = System.nanoTime();
-                sink += operation.execute(arm, ops, prepared);
+                sink += operation.execute(arm, count, prepared);
                 long nanos = System.nanoTime() - start;
                 roundNanos += nanos;
                 if (arm == Arm.A) {
                     nanosA = nanos;
+                } else if (arm == Arm.J) {
+                    nanosJ = nanos;
                 }
             }
             long jitNanos = (jitMillis() - jit0) * 1_000_000;
             warmupRounds++;
-            ops = Math.max(1, Math.min(operation.maxOps(),
-                    Math.round((double) settings.roundNanos() * ops / Math.max(1, nanosA))));
+            ops = calibrate(settings, operation, ops, nanosA);
+            if (arms.contains(Arm.J)) {
+                opsJ = calibrate(settings, operation, opsJ, nanosJ);
+            }
             settled = jitNanos < 0.02 * roundNanos ? settled + 1 : 0;
             if (warmupRounds >= settings.minWarmupRounds() && settled >= 2) {
                 break;
@@ -201,8 +212,9 @@ public final class MeasurementLoop {
             }
             for (int position = 0; position < order.size(); position++) {
                 Arm arm = order.get(position);
-                double executed = arm == Arm.B_PLUS ? ops * (1 + Arm.PLUS_FRACTION) : ops;
-                Object prepared = operation.prepare(arm, ops);
+                long count = arm == Arm.J ? opsJ : ops;
+                double executed = arm == Arm.B_PLUS ? count * (1 + Arm.PLUS_FRACTION) : count;
+                Object prepared = operation.prepare(arm, count);
                 long gc0 = gcMillis();
                 long jit0 = jitMillis();
                 long switches0 = OsCounters.involuntarySwitches();
@@ -210,7 +222,7 @@ public final class MeasurementLoop {
                 long cpu0 = THREADS.getCurrentThreadCpuTime();
                 long alloc0 = THREADS.getCurrentThreadAllocatedBytes();
                 long t0 = System.nanoTime();
-                sink += operation.execute(arm, ops, prepared);
+                sink += operation.execute(arm, count, prepared);
                 if (arm == Arm.B_PLUS) {
                     sink += Arm.waitExtra(t0, System.nanoTime());
                 }
@@ -222,12 +234,25 @@ public final class MeasurementLoop {
                     alloc = foreign;
                 }
                 out.accept(new RoundRecord(point.measurement(), point.id(), point.unitKey(), mode, replica, fork,
-                        round, arm.label(), position, ops, executed, nanos, cpu, alloc, gcMillis() - gc0,
+                        round, arm.label(), position, count, executed, nanos, cpu, alloc, gcMillis() - gc0,
                         jitMillis() - jit0, OsCounters.delta(switches0, OsCounters.involuntarySwitches()),
                         OsCounters.delta(steal0, OsCounters.stealTicks()), warmupRounds, capped, baselineVersion,
                         candidateVersion, settings.rounds()));
             }
         }
+    }
+
+    /**
+     * Returns the operations per round after a warm-up round, so that an arm
+     * takes about the target time: at least one, at most the limit of the
+     * operation.
+     *
+     * @param ops the operations of the arm in the warm-up round
+     * @param nanos the time they took
+     */
+    private static long calibrate(Settings settings, Operation operation, long ops, long nanos) {
+        return Math.max(1, Math.min(operation.maxOps(),
+                Math.round((double) settings.roundNanos() * ops / Math.max(1, nanos))));
     }
 
     /**

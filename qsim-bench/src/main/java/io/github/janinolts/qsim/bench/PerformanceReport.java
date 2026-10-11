@@ -66,7 +66,8 @@ record PerformanceReport(AggregateCommand.Data data, List<Aggregator.PointResult
 
     /** What an operation is, per measurement. */
     static final Map<String, String> OPERATIONS = Map.of(
-            "P1", "a new compiler instance, compiling, loading and initializing the classes",
+            "P1", "a new compiler instance, compiling, loading and initializing the classes; J is javac "
+                    + "(--release 8) as a reference, except in xint",
             "P2", "as in P1, at each level of a series",
             "P3", "one phase: parsing or compiling the compilation units, loading the class files with verification, "
                     + "or the first instance of freshly loaded classes",
@@ -195,12 +196,13 @@ record PerformanceReport(AggregateCommand.Data data, List<Aggregator.PointResult
             sb.append("No measured points.\n\n");
             return;
         }
-        boolean reference = measurement.equals("P9");
+        boolean reference = rs.stream().anyMatch(r -> r.reference().units() > 0);
+        boolean rows = measurement.equals("P9");
         sb.append("| Point | Mode | A [ms] | B [ms] | B/A | 95 % interval | Class | B'/B | B+/B (95 %) | MDD | Alloc B/A");
-        sb.append(reference ? " | J/A | Rows/s A | Rows/s B" : "");
+        sb.append(reference ? " | J/A" : "").append(rows ? " | Rows/s A | Rows/s B" : "");
         sb.append(" | Units | Notes |\n");
         sb.append("| --- | --- | ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: |");
-        sb.append(reference ? " ---: | ---: | ---: |" : "");
+        sb.append(reference ? " ---: |" : "").append(rows ? " ---: | ---: |" : "");
         sb.append(" ---: | --- |\n");
         for (Aggregator.PointResult r : rs) {
             double[] ci = r.ratio().interval(0.95);
@@ -214,14 +216,37 @@ record PerformanceReport(AggregateCommand.Data data, List<Aggregator.PointResult
                     .append(r.ratio().hasInterval() ? pct(r.ratio().minimumDetectableDifference()) : "-")
                     .append(" | ").append(num(r.allocation().ratio()));
             if (reference) {
-                double rows = Measurements.RUN_ROWS;
-                sb.append(" | ").append(withInterval(r.reference())).append(" | ").append(rate(rows, sa))
-                        .append(" | ").append(rate(rows, sbb));
+                sb.append(" | ").append(withInterval(r.reference()));
+            }
+            if (rows) {
+                sb.append(" | ").append(rate(Measurements.RUN_ROWS, sa)).append(" | ")
+                        .append(rate(Measurements.RUN_ROWS, sbb));
             }
             sb.append(" | ").append(r.ratio().units()).append(r.unitsAreForks() ? " forks" : " replicas")
                     .append(" | ").append(String.join("; ", r.notes())).append(" |\n");
         }
         sb.append('\n');
+        if (reference && !rows) {
+            appendReference(sb, rs);
+        }
+    }
+
+    /** The compile time of javac against the baseline: the median of J/A over the points, per mode. */
+    private static void appendReference(StringBuilder sb, List<Aggregator.PointResult> rs) {
+        Map<String, List<Double>> byMode = new TreeMap<>();
+        for (Aggregator.PointResult r : rs) {
+            if (r.reference().units() > 0) {
+                byMode.computeIfAbsent(r.mode(), m -> new ArrayList<>()).add(r.reference().ratio());
+            }
+        }
+        sb.append("javac (J) against the baseline (A), only for orientation: the median of J/A over the points");
+        String separator = " in ";
+        for (Map.Entry<String, List<Double>> e : byMode.entrySet()) {
+            sb.append(separator).append(e.getKey()).append(' ').append(num2(Stats.median(e.getValue())))
+                    .append(" (").append(e.getValue().size()).append(e.getValue().size() == 1 ? " point)" : " points)");
+            separator = ", in ";
+        }
+        sb.append(".\n\n");
     }
 
     private void appendScaling(StringBuilder sb, List<Aggregator.PointResult> rs) {

@@ -19,7 +19,7 @@ package io.github.janinolts.qsim.bench;
 import java.util.List;
 
 /**
- * The four arms of every round, and the javac reference of P9.
+ * The four arms of every round, and the javac reference of P1 and P9.
  */
 public enum Arm {
 
@@ -39,13 +39,17 @@ public enum Arm {
     B_PLUS("B+"),
 
     /**
-     * The code compiled by javac, as a reference beside the four arms; only
-     * in P9, the runtime of the generated code: J/A.
+     * javac, as a reference beside the four arms: J/A. In P1, the compile
+     * time of javac (except in xint); in P9, the runtime of the code that
+     * javac compiled.
      */
     J("J");
 
     /** The four arms of every measurement, without the reference. */
     public static final List<Arm> CORE = List.of(A, B, B_PRIME, B_PLUS);
+
+    /** The four arms and the reference {@link #J}. */
+    public static final List<Arm> WITH_REFERENCE = List.of(A, B, B_PRIME, B_PLUS, J);
 
     /** The extra work of {@link #B_PLUS}: 1/33 of its own time. */
     public static final double PLUS_FRACTION = 1.0 / 33;

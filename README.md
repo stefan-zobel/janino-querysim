@@ -120,6 +120,12 @@ order:
 | B' | Candidate in a second class loader | Negative control: B'/B must be 1 |
 | B+ | Candidate, which then waits actively for another 1/33 of its time | Positive control: B+/B must be about 1.03 |
 
+In P1 (except in `xint`) and P9, a fifth arm `J` runs javac as a reference: in P1 its compile
+time, in P9 the runtime of the code it compiled. The report gives J/A with its interval, only for
+orientation; it changes no classification. In P1, `J` executes a number of operations per round
+of its own, because javac takes a multiple of the time of Janino; a replica of P1 in `tiered`
+takes about a third longer with it.
+
 Rounds are grouped into forks (fresh JVMs), forks into replicas (machines). The measured rounds
 of a point have a time budget per fork (`--point-seconds 240`): once the next round would exceed
 it, the point ends, but not before `--min-rounds 8`. Only very slow points reach it, e.g. the
@@ -133,7 +139,7 @@ does: B/A above 1.01 at a point needs an `ALLOC` entry in the ledger.
 
 | ID | Measurement |
 | --- | --- |
-| P1 | Compile time per scenario |
+| P1 | Compile time per scenario; javac as a reference (except in `xint`) |
 | P2 | Scaling over the size of the source, with the search for the 64 KB limit of a method |
 | P3 | Phases: parsing, compiling, loading with verification, instantiating |
 | P4 | Cold start in a fresh JVM |

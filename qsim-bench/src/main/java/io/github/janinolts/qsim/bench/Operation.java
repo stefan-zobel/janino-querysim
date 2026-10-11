@@ -110,11 +110,20 @@ abstract class Operation implements AutoCloseable {
         return arms.of(arm);
     }
 
-    /** Compile, load, initialize. */
+    /** Compile, load, initialize; with javac as a reference. */
     static final class Compile extends Operation {
+
+        private final boolean reference;
 
         Compile(GeneratedQuery query, MeasurementLoop.Arms arms, CompileOptions options) {
             super(query, arms, options);
+            // javac rejects some units that Janino compiles, e.g. methods over 64 KB; then there is no reference.
+            reference = arms.javac() != null && QueryRunner.compile(query, arms.javac(), options).failure() == null;
+        }
+
+        @Override
+        List<Arm> arms() {
+            return reference ? Arm.WITH_REFERENCE : Arm.CORE;
         }
 
         @Override
@@ -340,7 +349,7 @@ abstract class Operation implements AutoCloseable {
 
         @Override
         List<Arm> arms() {
-            return compiled.containsKey(Arm.J) ? List.of(Arm.A, Arm.B, Arm.B_PRIME, Arm.B_PLUS, Arm.J) : Arm.CORE;
+            return compiled.containsKey(Arm.J) ? Arm.WITH_REFERENCE : Arm.CORE;
         }
 
         @Override

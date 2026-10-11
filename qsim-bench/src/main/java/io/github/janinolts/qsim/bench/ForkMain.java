@@ -37,7 +37,8 @@ import java.util.Set;
 /**
  * The entry point of a fork: a fresh JVM, started by {@code bench} with the
  * options of one mode, that measures the points of one measurement and writes
- * the rounds as JSON lines.
+ * the rounds as JSON lines. In P1 (except in xint) and P9, javac takes part
+ * as the reference {@code J}.
  */
 public final class ForkMain {
 
@@ -76,7 +77,7 @@ public final class ForkMain {
              IsolatedBackend bPrime = JaninoInstallation.candidate().load();
              BufferedWriter w = Files.newBufferedWriter(out, StandardCharsets.UTF_8)) {
             MeasurementLoop.Arms arms = new MeasurementLoop.Arms(a, b, bPrime,
-                    measurement.equals("P9") ? new JavacBackend() : null);
+                    javacReference(measurement, mode) ? new JavacBackend() : null);
             CompileOptions options = CompileOptions.of(ApiPath.CLASS_BODY, ForkMain.class.getClassLoader());
             Gson gson = new Gson();
             for (Measurements.Point point : points) {
@@ -91,5 +92,15 @@ public final class ForkMain {
                 w.flush();
             }
         }
+    }
+
+    /**
+     * Tells whether javac takes part as the reference {@code J}: in P9, the
+     * runtime of the generated code, and in P1, the compile time, except in
+     * xint, where javac would take very long and add nothing to the
+     * classification of Janino.
+     */
+    static boolean javacReference(String measurement, String mode) {
+        return measurement.equals("P9") || measurement.equals("P1") && !mode.equals(Mode.XINT.label());
     }
 }

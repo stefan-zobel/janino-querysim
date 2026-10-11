@@ -64,7 +64,8 @@ class OperationTest {
              IsolatedBackend b = JaninoInstallation.candidate().load();
              IsolatedBackend bPrime = JaninoInstallation.candidate().load()) {
             CompileOptions options = CompileOptions.of(ApiPath.CLASS_BODY, OperationTest.class.getClassLoader());
-            MeasurementLoop.Arms arms = new MeasurementLoop.Arms(a, b, bPrime, new JavacBackend());
+            MeasurementLoop.Arms withJavac = new MeasurementLoop.Arms(a, b, bPrime, new JavacBackend());
+            MeasurementLoop.Arms withoutJavac = new MeasurementLoop.Arms(a, b, bPrime);
             for (Measurements.Point p : points) {
                 if (!p.measurement().equals("P9")) {
                     assertNull(BenchCommand.check(p, a, b, options), p.id());
@@ -72,7 +73,8 @@ class OperationTest {
                 infos.add(new PointInfo(p.measurement(), p.id(), p.unitKey(), p.sourceChars(), p.attributes(), true,
                         null));
                 for (int fork = 0; fork < 2; fork++) {
-                    MeasurementLoop.run(p, arms, options, TINY, "xint", "local", fork, records::add);
+                    MeasurementLoop.run(p, ForkMain.javacReference(p.measurement(), "xint") ? withJavac
+                            : withoutJavac, options, TINY, "xint", "local", fork, records::add);
                 }
             }
             // P9 measures only units whose method bodies differ; 3.1.19 and 3.1.12 generate the same.
