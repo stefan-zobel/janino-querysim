@@ -103,25 +103,38 @@ public final class MeasurementLoop {
     }
 
     /**
-     * The backends of the arms; {@code B+} uses the backend of {@code B}.
+     * The backends of the arms.
      *
      * @param a the baseline
      * @param b the candidate
      * @param bPrime the candidate, loaded through a second class loader
-     * @param javac javac, the reference of P9, or {@code null}
+     * @param bPlus the candidate of {@code B+}: usually {@code b} itself (see
+     *        {@link PlusLoader})
+     * @param javac javac, the reference of P1 and P9, or {@code null}
      */
-    public record Arms(CompilerBackend a, CompilerBackend b, CompilerBackend bPrime, CompilerBackend javac) {
+    public record Arms(CompilerBackend a, CompilerBackend b, CompilerBackend bPrime, CompilerBackend bPlus,
+            CompilerBackend javac) {
 
-        /** The arms without javac. */
+        /** The arms in which {@code B+} uses the backend of {@code B}. */
+        public Arms(CompilerBackend a, CompilerBackend b, CompilerBackend bPrime, CompilerBackend javac) {
+            this(a, b, bPrime, b, javac);
+        }
+
+        /** The arms without javac, in which {@code B+} uses the backend of {@code B}. */
         public Arms(CompilerBackend a, CompilerBackend b, CompilerBackend bPrime) {
-            this(a, b, bPrime, null);
+            this(a, b, bPrime, b, null);
+        }
+
+        public Arms {
+            Objects.requireNonNull(bPlus, "bPlus");
         }
 
         CompilerBackend of(Arm arm) {
             return switch (arm) {
                 case A -> a;
-                case B, B_PLUS -> b;
+                case B -> b;
                 case B_PRIME -> bPrime;
+                case B_PLUS -> bPlus;
                 case J -> Objects.requireNonNull(javac, "javac");
             };
         }

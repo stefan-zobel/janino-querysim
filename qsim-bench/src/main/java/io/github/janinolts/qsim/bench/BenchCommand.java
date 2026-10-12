@@ -63,7 +63,7 @@ final class BenchCommand {
     }
 
     static int run(String[] argv) throws IOException, InterruptedException {
-        Args args = new Args(argv, Set.of("extended"));
+        Args args = new Args(argv, Set.of("extended", "prime-first"));
         List<String> requested = args.positional().isEmpty() ? List.of("P1", "P8") : args.positional();
         for (String m : requested) {
             if (!Measurements.ALL.contains(m)) {
@@ -80,6 +80,8 @@ final class BenchCommand {
         Files.createDirectories(dir);
         boolean extended = args.flag("extended");
         String patterns = args.get("points", null);
+        PlusLoader plusLoader = PlusLoader.ofLabel(args.get("plus-loader", PlusLoader.SHARED.label()));
+        boolean primeFirst = args.flag("prime-first");
         Path baselineDir = JaninoInstallation.baseline().directory().toAbsolutePath();
         Path candidateDir = JaninoInstallation.candidate().directory().toAbsolutePath();
         List<String> installations = List.of("-D" + JaninoInstallation.BASELINE_DIR_PROPERTY + "=" + baselineDir,
@@ -177,6 +179,12 @@ final class BenchCommand {
                     if (extended) {
                         command.add("--extended");
                     }
+                    if (plusLoader != PlusLoader.SHARED) {
+                        command.addAll(List.of("--plus-loader", plusLoader.label()));
+                    }
+                    if (primeFirst) {
+                        command.add("--prime-first");
+                    }
                     System.out.println(m + " " + mode.label() + " fork " + fork + " ...");
                     Process process = new ProcessBuilder(command)
                             .redirectErrorStream(true)
@@ -196,7 +204,8 @@ final class BenchCommand {
                 seconds.put(m + " " + mode.label(), secondsSince(modeStarted));
             }
         }
-        Environment env = Environment.current(replica, jvmOptions, baselineVersion, candidateVersion, seconds);
+        Environment env = Environment.current(replica, jvmOptions, baselineVersion, candidateVersion, seconds,
+                plusLoader.describe(primeFirst));
         Files.writeString(dir.resolve(Environment.FILE), GSON.toJson(env), StandardCharsets.UTF_8);
         System.out.println("Raw data in " + dir.toAbsolutePath());
         return 0;

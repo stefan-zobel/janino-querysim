@@ -18,7 +18,10 @@ package io.github.janinolts.qsim.bench;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.janinolts.qsim.backend.ApiPath;
@@ -133,6 +136,51 @@ class OperationTest {
             assertTrue(report.classFileFindings().isEmpty(), report.classFileFindings()::toString);
             assertNull(BenchCommand.check(p9, a, b, options));
         }
+    }
+
+    /**
+     * {@code B+} compiles with the copy of the candidate that the fork chose:
+     * by default the copy of {@code B}, or one of its own, or the copy of
+     * {@code B'}.
+     */
+    @Test
+    void positiveControlUsesTheChosenCopy() throws Exception {
+        Measurements.Point p9 = Measurements.of("P9", false, "Q_TINY*").get(0);
+        try (IsolatedBackend a = JaninoInstallation.baseline().load();
+             IsolatedBackend b = JaninoInstallation.candidate().load();
+             IsolatedBackend bPrime = JaninoInstallation.candidate().load();
+             IsolatedBackend own = JaninoInstallation.candidate().load()) {
+            CompileOptions options = CompileOptions.of(ApiPath.CLASS_BODY, OperationTest.class.getClassLoader());
+            MeasurementLoop.Arms shared = new MeasurementLoop.Arms(a, b, bPrime);
+            MeasurementLoop.Arms ownCopy = new MeasurementLoop.Arms(a, b, bPrime, own, null);
+            MeasurementLoop.Arms primeCopy = new MeasurementLoop.Arms(a, b, bPrime, bPrime, null);
+            assertSame(b, shared.of(Arm.B_PLUS));
+            assertSame(own, ownCopy.of(Arm.B_PLUS));
+            assertSame(bPrime, primeCopy.of(Arm.B_PLUS));
+            try (Operation.Run s = new Operation.Run(p9.generate(), shared, options, p9.tables());
+                 Operation.Run o = new Operation.Run(p9.generate(), ownCopy, options, p9.tables());
+                 Operation.Run p = new Operation.Run(p9.generate(), primeCopy, options, p9.tables())) {
+                assertSame(s.compiled(Arm.B), s.compiled(Arm.B_PLUS));
+                assertNotSame(o.compiled(Arm.B), o.compiled(Arm.B_PLUS));
+                assertNotSame(o.compiled(Arm.B_PRIME), o.compiled(Arm.B_PLUS));
+                assertSame(p.compiled(Arm.B_PRIME), p.compiled(Arm.B_PLUS));
+            }
+        }
+        assertEquals(PlusLoader.OWN, PlusLoader.ofLabel("own"));
+        assertEquals("B+ shares the copy of B'; B' loaded before B", PlusLoader.PRIME.describe(true));
+        assertThrows(IllegalArgumentException.class, () -> PlusLoader.ofLabel("separate"));
+    }
+
+    /** A fork with a copy of its own for {@code B+} and the copy of {@code B'} loaded first measures all arms. */
+    @Test
+    void forkWithOtherCopies() throws Exception {
+        Path out = Files.createTempDirectory("qsim-copies").resolve("rounds-P6-xint-0.jsonl");
+        ForkMain.main(new String[] {"--measurement", "P6", "--points", "classes:4", "--mode", "xint", "--rounds",
+                "2", "--min-rounds", "1", "--round-millis", "1", "--max-warmup-seconds", "1", "--plus-loader",
+                "own", "--prime-first", "--out", out.toString()});
+        List<RoundRecord> records = AggregateCommand.read(List.of(out.getParent())).rounds();
+        assertEquals(Set.of("A", "B", "B'", "B+"), records.stream().map(RoundRecord::arm)
+                .collect(Collectors.toSet()));
     }
 
     @Test

@@ -178,6 +178,9 @@ record PerformanceReport(AggregateCommand.Data data, List<Aggregator.PointResult
                     .append(", ").append(e.os()).append(e.runnerImage().isEmpty() ? "" : ", image " + e.runnerImage())
                     .append(", ").append(e.cpuModel()).append(", ").append(e.cores()).append(" cores, JVM ")
                     .append(e.jvmOptions()).append(", commit ").append(e.commit()).append(", ").append(e.time());
+            if (e.copies() != null) {
+                sb.append("; ").append(e.copies());
+            }
             if (e.seconds() != null && !e.seconds().isEmpty()) {
                 sb.append("; duration");
                 String separator = " ";

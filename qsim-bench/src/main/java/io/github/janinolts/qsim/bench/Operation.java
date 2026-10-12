@@ -105,7 +105,7 @@ abstract class Operation implements AutoCloseable {
     public void close() {
     }
 
-    /** Returns the backend of an arm; {@code B+} compiles with the candidate. */
+    /** Returns the backend of an arm; {@code B+} compiles with a copy of the candidate. */
     CompilerBackend backend(Arm arm) {
         return arms.of(arm);
     }
@@ -328,7 +328,8 @@ abstract class Operation implements AutoCloseable {
             compiled.put(Arm.A, compile(arms.a()));
             compiled.put(Arm.B, compile(arms.b()));
             compiled.put(Arm.B_PRIME, compile(arms.bPrime()));
-            compiled.put(Arm.B_PLUS, compiled.get(Arm.B));
+            compiled.put(Arm.B_PLUS, arms.bPlus() == arms.b() ? compiled.get(Arm.B)
+                    : arms.bPlus() == arms.bPrime() ? compiled.get(Arm.B_PRIME) : compile(arms.bPlus()));
             if (arms.javac() != null) {
                 // javac rejects some units that Janino compiles, e.g. methods over 64 KB; then there is no reference.
                 CompiledQuery reference = QueryRunner.compile(query, arms.javac(), options);
@@ -350,6 +351,11 @@ abstract class Operation implements AutoCloseable {
         @Override
         List<Arm> arms() {
             return compiled.containsKey(Arm.J) ? Arm.WITH_REFERENCE : Arm.CORE;
+        }
+
+        /** Returns the code that an arm runs. */
+        CompiledQuery compiled(Arm arm) {
+            return compiled.get(arm);
         }
 
         @Override

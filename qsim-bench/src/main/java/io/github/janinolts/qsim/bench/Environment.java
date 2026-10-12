@@ -43,17 +43,27 @@ import java.util.Map;
  *        ({@code select}, which includes P8 and the search for the limits
  *        of P2) and of each measurement and mode, e.g. {@code P1 xint};
  *        {@code null} in raw data written before
+ * @param copies which copies of the candidate the arms use (see
+ *        {@link PlusLoader}); {@code null} in raw data written before, which
+ *        used the default
  */
 public record Environment(String replica, String jdkVendor, String jdkVersion, String os, String runnerImage,
         String cpuModel, int cores, Map<String, List<String>> jvmOptions, String baselineVersion,
-        String candidateVersion, String commit, String time, Map<String, Long> seconds) {
+        String candidateVersion, String commit, String time, Map<String, Long> seconds, String copies) {
 
     /** The name of the file. */
     public static final String FILE = "environment.json";
 
-    /** Describes the current environment. */
+    /** Describes the current environment, with the default copies of the candidate. */
     static Environment current(String replica, Map<String, List<String>> jvmOptions, String baselineVersion,
             String candidateVersion, Map<String, Long> seconds) {
+        return current(replica, jvmOptions, baselineVersion, candidateVersion, seconds,
+                PlusLoader.SHARED.describe(false));
+    }
+
+    /** Describes the current environment. */
+    static Environment current(String replica, Map<String, List<String>> jvmOptions, String baselineVersion,
+            String candidateVersion, Map<String, Long> seconds, String copies) {
         String image = System.getenv().getOrDefault("ImageOS", "") + " "
                 + System.getenv().getOrDefault("ImageVersion", "");
         return new Environment(replica, System.getProperty("java.vendor"), Runtime.version().toString(),
@@ -61,7 +71,7 @@ public record Environment(String replica, String jdkVendor, String jdkVersion, S
                         + System.getProperty("os.arch"),
                 image.strip(), readCpuModel(), Runtime.getRuntime().availableProcessors(), jvmOptions, baselineVersion,
                 candidateVersion, System.getenv().getOrDefault("GITHUB_SHA", "unknown"), Instant.now().toString(),
-                Map.copyOf(seconds));
+                Map.copyOf(seconds), copies);
     }
 
     private static String readCpuModel() {

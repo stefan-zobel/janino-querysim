@@ -50,10 +50,14 @@ public final class ForkMain {
      * --rounds 40 --round-millis 150 --seed 1 --min-rounds 8 --point-seconds 240
      * --out rounds.jsonl}, optionally
      * {@code --points <patterns>} or {@code --points-file <file>} with one
-     * point ID per line, and {@code --extended}.
+     * point ID per line, and {@code --extended}. For the diagnosis of the
+     * controls, {@code --plus-loader shared|own|prime} chooses the copy of
+     * the candidate of {@code B+} (see {@link PlusLoader}), and
+     * {@code --prime-first} loads the copy of {@code B'} before the copy of
+     * {@code B}.
      */
     public static void main(String[] argv) throws IOException {
-        Args args = new Args(argv, Set.of("extended"));
+        Args args = new Args(argv, Set.of("extended", "prime-first"));
         String measurement = args.get("measurement", "P1");
         List<Measurements.Point> points = Measurements.of(measurement, args.flag("extended"),
                 args.get("points", null));
@@ -71,12 +75,22 @@ public final class ForkMain {
         String replica = args.get("replica", "local");
         int fork = args.getInt("fork", 0);
         Path out = Path.of(args.get("out", "rounds.jsonl"));
+        PlusLoader plusLoader = PlusLoader.ofLabel(args.get("plus-loader", PlusLoader.SHARED.label()));
+        boolean primeFirst = args.flag("prime-first");
 
         try (IsolatedBackend a = JaninoInstallation.baseline().load();
-             IsolatedBackend b = JaninoInstallation.candidate().load();
-             IsolatedBackend bPrime = JaninoInstallation.candidate().load();
+             IsolatedBackend first = JaninoInstallation.candidate().load();
+             IsolatedBackend second = JaninoInstallation.candidate().load();
+             IsolatedBackend own = plusLoader == PlusLoader.OWN ? JaninoInstallation.candidate().load() : null;
              BufferedWriter w = Files.newBufferedWriter(out, StandardCharsets.UTF_8)) {
-            MeasurementLoop.Arms arms = new MeasurementLoop.Arms(a, b, bPrime,
+            IsolatedBackend b = primeFirst ? second : first;
+            IsolatedBackend bPrime = primeFirst ? first : second;
+            IsolatedBackend bPlus = switch (plusLoader) {
+                case SHARED -> b;
+                case OWN -> own;
+                case PRIME -> bPrime;
+            };
+            MeasurementLoop.Arms arms = new MeasurementLoop.Arms(a, b, bPrime, bPlus,
                     javacReference(measurement, mode) ? new JavacBackend() : null);
             CompileOptions options = CompileOptions.of(ApiPath.CLASS_BODY, ForkMain.class.getClassLoader());
             Gson gson = new Gson();
