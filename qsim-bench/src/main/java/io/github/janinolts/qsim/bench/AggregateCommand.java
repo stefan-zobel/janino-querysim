@@ -145,7 +145,11 @@ final class AggregateCommand {
         return new PerformanceReport(data, results, options, limit, ledger, allocation, classFileFindings);
     }
 
-    /** Reads the raw data from directories, recursively. */
+    /**
+     * Reads the raw data from directories, recursively. The class files and
+     * the limits of a method do not depend on the machine, so every replica
+     * writes the same rows; identical rows are kept once.
+     */
     static Data read(List<Path> directories) throws IOException {
         List<RoundRecord> rounds = new ArrayList<>();
         List<ClassFileMeasurement.Row> classFiles = new ArrayList<>();
@@ -179,7 +183,12 @@ final class AggregateCommand {
                 }
             }
         }
-        return new Data(rounds, classFiles, environments, points, limits, debugClassFiles);
+        return new Data(rounds, distinct(classFiles), environments, points, distinct(limits),
+                distinct(debugClassFiles));
+    }
+
+    private static <T> List<T> distinct(List<T> rows) {
+        return rows.stream().distinct().toList();
     }
 
     private static <T> void readLines(Path file, Class<T> type, List<T> into) throws IOException {

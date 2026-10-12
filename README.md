@@ -124,7 +124,7 @@ In P1 (except in `xint`) and P9, a fifth arm `J` runs javac as a reference: in P
 time, in P9 the runtime of the code it compiled. The report gives J/A with its interval, only for
 orientation; it changes no classification. In P1, `J` executes a number of operations per round
 of its own, because javac takes a multiple of the time of Janino; a replica of P1 in `tiered`
-takes about a third longer with it.
+takes about half as long again with it (25 to 28 instead of 16 to 19 minutes on GitHub runners).
 
 Rounds are grouped into forks (fresh JVMs), forks into replicas (machines). The measured rounds
 of a point have a time budget per fork (`--point-seconds 240`): once the next round would exceed

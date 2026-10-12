@@ -40,7 +40,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The measurement pipeline in one JVM, with real backends but tiny rounds:
  * the loop produces complete rounds, the raw data survive JSON, and
- * {@code aggregate} evaluates them, including P8.
+ * {@code aggregate} evaluates them, including P8, whose rows every replica
+ * writes alike.
  */
 class PipelineTest {
 
@@ -79,9 +80,12 @@ class PipelineTest {
         StringBuilder rows = new StringBuilder();
         classFiles.forEach(r -> rows.append(gson.toJson(r)).append('\n'));
         Files.writeString(dir.resolve("classfiles.jsonl"), rows, StandardCharsets.UTF_8);
+        Path second = Files.createDirectories(dir.resolveSibling("second"));
+        Files.writeString(second.resolve("classfiles.jsonl"), rows, StandardCharsets.UTF_8);
 
         AggregateCommand.Data data = AggregateCommand.read(List.of(dir.getParent()));
         assertEquals(records, data.rounds());
+        assertEquals(classFiles, data.classFiles());
         PerformanceReport report = AggregateCommand.evaluate(data, Aggregator.Options.DEFAULT, 1.01);
         assertEquals(1, report.results().size());
         assertTrue(report.classFileFindings().isEmpty(), report.classFileFindings()::toString);
