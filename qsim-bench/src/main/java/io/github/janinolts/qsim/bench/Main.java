@@ -31,13 +31,14 @@ public final class Main {
                          [--points <pattern>,...] [--extended]
                          [--fork-timeout-minutes 120] [--cold-forks 3] [--cold-rounds 10]
                          [--cold-timeout-seconds 600] [--limit-timeout-seconds 600] [--out results]
-                         [--plus-loader shared|own|prime] [--prime-first]
+                         [--plus-loader own|shared|prime] [--prime-first]
                          [P1 ... P10]
                          Measures in fresh JVMs and writes raw data to <out>/<replica>/;
                          without measurements P1 and P8. The measured rounds of a point
                          end after --point-seconds, but not before --min-rounds.
-                         --plus-loader chooses the copy of the candidate of B+, --prime-first
-                         loads the copy of B' before the copy of B (diagnosis of the controls).
+                         Every arm uses a copy of the candidate of its own; for the diagnosis of
+                         the controls, --plus-loader shared or prime lets B+ share the copy of B
+                         or B', and --prime-first loads the copy of B' before the copy of B.
               aggregate  [--delta 0.02] [--q 0.05] [--allocation-limit 1.01] [--out <dir>] <dir>...
                          Combines the raw data of all replicas and writes report-performance.md,
                          for P2 also scaling/*.csv and scaling/*.svg.

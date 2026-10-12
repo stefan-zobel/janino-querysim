@@ -108,8 +108,8 @@ public final class MeasurementLoop {
      * @param a the baseline
      * @param b the candidate
      * @param bPrime the candidate, loaded through a second class loader
-     * @param bPlus the candidate of {@code B+}: usually {@code b} itself (see
-     *        {@link PlusLoader})
+     * @param bPlus the candidate of {@code B+}: in the forks a third copy
+     *        (see {@link PlusLoader}), in tests often {@code b} itself
      * @param javac javac, the reference of P1 and P9, or {@code null}
      */
     public record Arms(CompilerBackend a, CompilerBackend b, CompilerBackend bPrime, CompilerBackend bPlus,

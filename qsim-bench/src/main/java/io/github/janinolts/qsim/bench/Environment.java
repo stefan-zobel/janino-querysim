@@ -44,8 +44,8 @@ import java.util.Map;
  *        of P2) and of each measurement and mode, e.g. {@code P1 xint};
  *        {@code null} in raw data written before
  * @param copies which copies of the candidate the arms use (see
- *        {@link PlusLoader}); {@code null} in raw data written before, which
- *        used the default
+ *        {@link PlusLoader}); {@code null} in raw data written before, in
+ *        which {@code B+} shared the copy of {@code B}
  */
 public record Environment(String replica, String jdkVendor, String jdkVersion, String os, String runnerImage,
         String cpuModel, int cores, Map<String, List<String>> jvmOptions, String baselineVersion,
@@ -58,7 +58,7 @@ public record Environment(String replica, String jdkVendor, String jdkVersion, S
     static Environment current(String replica, Map<String, List<String>> jvmOptions, String baselineVersion,
             String candidateVersion, Map<String, Long> seconds) {
         return current(replica, jvmOptions, baselineVersion, candidateVersion, seconds,
-                PlusLoader.SHARED.describe(false));
+                PlusLoader.OWN.describe(false));
     }
 
     /** Describes the current environment. */

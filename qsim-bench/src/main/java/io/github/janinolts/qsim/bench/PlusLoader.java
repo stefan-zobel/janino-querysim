@@ -20,14 +20,18 @@ package io.github.janinolts.qsim.bench;
  * Which copy of the candidate the positive control {@code B+} compiles with.
  * A copy is the candidate loaded through a class loader of its own; its code
  * has its own profile in the JIT compiler. A copy that two arms share runs
- * twice per round, the others once, which can matter in {@code tiered}.
+ * twice per round, the others once, and in {@code tiered} the JIT compiler
+ * makes it faster: with {@link #SHARED}, {@code B'} is 1 to 2 % slower than
+ * {@code B}, and {@code B} is faster against {@code A} by as much. Hence
+ * every arm has a copy of its own by default; the other values remain for
+ * the diagnosis of the controls.
  */
 public enum PlusLoader {
 
-    /** {@code B+} shares the copy of {@code B}: the default. */
+    /** {@code B+} shares the copy of {@code B}, which then runs twice per round: the former default. */
     SHARED("shared", "B+ shares the copy of B"),
 
-    /** {@code B+} has a copy of its own, so that every copy runs once per round. */
+    /** {@code B+} has a copy of its own, so that every copy runs once per round: the default. */
     OWN("own", "B+ has a copy of its own"),
 
     /** {@code B+} shares the copy of {@code B'}: the mirror image of {@link #SHARED}. */

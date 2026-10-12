@@ -80,7 +80,7 @@ final class BenchCommand {
         Files.createDirectories(dir);
         boolean extended = args.flag("extended");
         String patterns = args.get("points", null);
-        PlusLoader plusLoader = PlusLoader.ofLabel(args.get("plus-loader", PlusLoader.SHARED.label()));
+        PlusLoader plusLoader = PlusLoader.ofLabel(args.get("plus-loader", PlusLoader.OWN.label()));
         boolean primeFirst = args.flag("prime-first");
         Path baselineDir = JaninoInstallation.baseline().directory().toAbsolutePath();
         Path candidateDir = JaninoInstallation.candidate().directory().toAbsolutePath();
@@ -179,7 +179,7 @@ final class BenchCommand {
                     if (extended) {
                         command.add("--extended");
                     }
-                    if (plusLoader != PlusLoader.SHARED) {
+                    if (plusLoader != PlusLoader.OWN) {
                         command.addAll(List.of("--plus-loader", plusLoader.label()));
                     }
                     if (primeFirst) {

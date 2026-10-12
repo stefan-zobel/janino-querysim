@@ -128,7 +128,7 @@ order:
 | A | Baseline | Reference |
 | B | Candidate | The measurement: B/A, below 1 means the candidate is faster |
 | B' | Candidate in a second class loader | Negative control: B'/B must be 1 |
-| B+ | Candidate, which then waits actively for another 1/33 of its time | Positive control: B+/B must be about 1.03 |
+| B+ | Candidate in a third class loader, which then waits actively for another 1/33 of its time | Positive control: B+/B must be about 1.03 |
 
 In P1 (except in `xint`) and P9, a fifth arm `J` runs javac as a reference: in P1 its compile
 time, in P9 the runtime of the code it compiled. The report gives J/A with its interval, only for
@@ -136,10 +136,12 @@ orientation; it changes no classification. In P1, `J` executes a number of opera
 of its own, because javac takes a multiple of the time of Janino; a replica of P1 in `tiered`
 takes about half as long again with it (25 to 28 instead of 16 to 19 minutes on GitHub runners).
 
-By default, B+ compiles with the same copy of the candidate as B, so that this copy runs twice per
-round. For the diagnosis of the controls, `bench --plus-loader own` gives B+ a copy of its own,
-`--plus-loader prime` lets it share the copy of B', and `--prime-first` loads the copy of B' before
-the copy of B; the report names the copies under "Environment".
+Each arm runs once per round with a copy of Janino of its own. In `tiered`, a copy that two arms
+share runs twice per round and gets faster code from the JIT compiler: when B+ shared the copy of
+B, B' was 1 to 2 % slower than B, and B was faster against A by as much. For the diagnosis of the
+controls, `bench --plus-loader shared` or `prime` lets B+ share the copy of B or B', and
+`--prime-first` loads the copy of B' before the copy of B; the report names the copies under
+"Environment".
 
 Rounds are grouped into forks (fresh JVMs), forks into replicas (machines). The measured rounds
 of a point have a time budget per fork (`--point-seconds 240`): once the next round would exceed

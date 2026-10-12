@@ -33,8 +33,9 @@ public enum Arm {
     B_PRIME("B'"),
 
     /**
-     * The candidate, which after its operations waits actively for another
-     * 1/33 of their time: the positive control, B+/B must be about 1.03.
+     * The candidate, through a third class loader, which after its operations
+     * waits actively for another 1/33 of their time: the positive control,
+     * B+/B must be about 1.03.
      */
     B_PLUS("B+"),
 

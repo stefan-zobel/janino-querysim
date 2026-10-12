@@ -51,8 +51,9 @@ public final class ForkMain {
      * --out rounds.jsonl}, optionally
      * {@code --points <patterns>} or {@code --points-file <file>} with one
      * point ID per line, and {@code --extended}. For the diagnosis of the
-     * controls, {@code --plus-loader shared|own|prime} chooses the copy of
-     * the candidate of {@code B+} (see {@link PlusLoader}), and
+     * controls, {@code --plus-loader own|shared|prime} chooses the copy of
+     * the candidate of {@code B+} (see {@link PlusLoader}; by default a copy
+     * of its own), and
      * {@code --prime-first} loads the copy of {@code B'} before the copy of
      * {@code B}.
      */
@@ -75,7 +76,7 @@ public final class ForkMain {
         String replica = args.get("replica", "local");
         int fork = args.getInt("fork", 0);
         Path out = Path.of(args.get("out", "rounds.jsonl"));
-        PlusLoader plusLoader = PlusLoader.ofLabel(args.get("plus-loader", PlusLoader.SHARED.label()));
+        PlusLoader plusLoader = PlusLoader.ofLabel(args.get("plus-loader", PlusLoader.OWN.label()));
         boolean primeFirst = args.flag("prime-first");
 
         try (IsolatedBackend a = JaninoInstallation.baseline().load();
