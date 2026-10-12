@@ -39,7 +39,8 @@ import java.util.Objects;
  * <li>the interpreter computes the reference result;</li>
  * <li>the generator generates the unit;</li>
  * <li>javac, the baseline and the candidate compile it, in the configuration
- * {@code as-shipped};</li>
+ * {@code as-shipped}, and the candidate in its compliance mode if the run
+ * includes it;</li>
  * <li>the compiled code runs on the same data;</li>
  * <li>the baseline and the candidate compile it again with target version 8
  * ({@code normalized}), and their class files are compared;</li>
@@ -62,12 +63,26 @@ public final class DifferentialRunner {
      * @param javac javac
      * @param baseline the baseline, Janino 3.1.12 by default
      * @param candidate the candidate, janino-lts
+     * @param compliance the candidate in its compliance mode, or {@code null}
+     *        if the run does not include it
      */
-    public record Backends(CompilerBackend javac, CompilerBackend baseline, CompilerBackend candidate) {
+    public record Backends(CompilerBackend javac, CompilerBackend baseline, CompilerBackend candidate,
+            CompilerBackend compliance) {
         public Backends {
             Objects.requireNonNull(javac, "javac");
             Objects.requireNonNull(baseline, "baseline");
             Objects.requireNonNull(candidate, "candidate");
+        }
+
+        /** The backends of a run without the compliance mode. */
+        public Backends(CompilerBackend javac, CompilerBackend baseline, CompilerBackend candidate) {
+            this(javac, baseline, candidate, null);
+        }
+
+        /** Returns the compiler backends in the order of the reports, the compliance mode last if present. */
+        public List<CompilerBackend> all() {
+            return compliance == null ? List.of(javac, baseline, candidate)
+                    : List.of(javac, baseline, candidate, compliance);
         }
     }
 
@@ -110,6 +125,7 @@ public final class DifferentialRunner {
         RunResult javac = run(query, backends.javac(), tables, runs);
         RunResult baseline = run(query, backends.baseline(), tables, runs);
         RunResult candidate = run(query, backends.candidate(), tables, runs);
+        RunResult compliance = backends.compliance() == null ? null : run(query, backends.compliance(), tables, runs);
 
         CompileOptions normalized = options.withTargetVersion(8);
         Map<String, byte[]> a = QueryRunner.compile(query, backends.baseline(), normalized).classFiles();
@@ -122,12 +138,15 @@ public final class DifferentialRunner {
         List<Difference> expected = new ArrayList<>();
         if (expectation.isStrict()) {
             strict(unit.key(), interpreted, javac, baseline, candidate, classFiles, differences);
+            if (compliance != null) {
+                strictCompliance(unit.key(), javac, candidate, compliance, differences);
+            }
         } else {
             RunResult janino = expectation.needsJaninoSemantics()
                     ? QueryRunner.interpret(unit.plan(), unit.config().ansi(), tables, LanguageFeature.Semantics.JANINO)
                     : interpreted;
             new Expected(unit.key(), expectation, interpreted, janino, differences, expected)
-                    .compare(javac, baseline, candidate, classFiles);
+                    .compare(javac, baseline, candidate, compliance, classFiles);
         }
         return new UnitOutcome(unit.key(), query.unit().metadata().featureTags(), runs, classFiles, differences,
                 expected);
@@ -160,6 +179,24 @@ public final class DifferentialRunner {
         }
     }
 
+    /**
+     * The pair {@code JAVAC:JLTS-C} of a unit of the profile {@code STRICT}:
+     * the compliance mode must compute the reference as well.
+     */
+    private static void strictCompliance(UnitKey key, RunResult javac, RunResult candidate, RunResult compliance,
+            List<Difference> differences) {
+        if (javac.status() == Status.LIMIT) {
+            return;
+        }
+        Kind k = classify(javac, compliance, false);
+        if (k != null) {
+            Assessment assessment = equivalent(candidate, compliance) ? Assessment.DEVIATION
+                    : equivalent(candidate, javac) ? Assessment.REGRESSION : Assessment.UNCLEAR;
+            differences.add(new Difference(key, Pair.JAVAC_JLTSC, k, assessment,
+                    "JAVAC: " + javac + " / JLTS-C: " + compliance));
+        }
+    }
+
     private static void bytes(UnitKey key, ClassFileComparison classFiles, List<Difference> differences) {
         if (classFiles != null && classFiles.level() != ClassFileComparison.Level.L0) {
             differences.add(new Difference(key, Pair.J3112_JLTS, Kind.BYTES, Assessment.CHANGED_CODE,
@@ -187,7 +224,9 @@ public final class DifferentialRunner {
             this.expected = expected;
         }
 
-        void compare(RunResult javac, RunResult baseline, RunResult candidate, ClassFileComparison classFiles) {
+        /** Compares the backends; {@code compliance} is {@code null} if the run does not include it. */
+        void compare(RunResult javac, RunResult baseline, RunResult candidate, RunResult compliance,
+                ClassFileComparison classFiles) {
             RunResult eJavac = result(expectation.javac());
             RunResult eBaseline = result(expectation.baseline());
             RunResult eCandidate = result(expectation.candidate());
@@ -218,6 +257,17 @@ public final class DifferentialRunner {
             }
             if (baselineOk && candidateOk && classify(baseline, candidate, true) == null) {
                 bytes(key, classFiles, differences);
+            }
+            if (compliance != null) {
+                RunResult eCompliance = result(expectation.compliance());
+                boolean complianceOk = conforms(compliance, eCompliance);
+                pair(Pair.JAVAC_JLTSC, "JAVAC", javac, javacOk, "JLTS-C", compliance, complianceOk,
+                        classify(eJavac, eCompliance, false), false, Assessment.UNCLEAR);
+                if (!complianceOk) {
+                    differences.add(new Difference(key, Pair.JAVAC_JLTSC, kind(eCompliance, compliance),
+                            Assessment.NOT_AS_EXPECTED, notAsExpected(ComplianceBackend.ID, expectation.compliance(),
+                                    eCompliance, compliance)));
+                }
             }
         }
 

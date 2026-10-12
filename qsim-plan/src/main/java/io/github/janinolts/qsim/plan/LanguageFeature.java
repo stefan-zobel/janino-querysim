@@ -36,42 +36,42 @@ import java.util.Objects;
 public enum LanguageFeature {
 
     /** {@code final T x = v; x = v;}: javac rejects the assignment to a {@code final} local variable. */
-    FINAL_LOCAL_ASSIGNMENT("L-04", "LENIENT", null, false, "0", false),
+    FINAL_LOCAL_ASSIGNMENT("L-04", "LENIENT", null, false, "0", false, null),
 
     /** {@code java.util.Map$Entry e = new java.util.AbstractMap$SimpleEntry(...)}: binary names in source. */
-    BINARY_NAME("L-42", "LENIENT", null, false, "0", false),
+    BINARY_NAME("L-42", "LENIENT", null, false, "0", false, null),
 
     /** {@code java.util.List<String> l = new java.util.ArrayList<Integer>();}: incompatible type arguments. */
-    PARAMETERIZED_ASSIGNMENT("G-07", "LENIENT", null, false, "0", false),
+    PARAMETERIZED_ASSIGNMENT("G-07", "LENIENT", null, false, "0", false, null),
 
     /** {@code new java.util.List<Object>[1]}: generic array creation. */
-    GENERIC_ARRAY("G-09", "LENIENT", null, false, "0", false),
+    GENERIC_ARRAY("G-09", "LENIENT", null, false, "0", false, null),
 
     /** {@code catch (IllegalStateException | UnsupportedOperationException e)}: multi-catch. */
-    MULTI_CATCH("#21", "MODERN", null, true, "3.1.16", false),
+    MULTI_CATCH("#21", "MODERN", null, true, "3.1.16", false, null),
 
     /** {@code Identity.super.identity(v)} in a local class: a qualified superinterface method invocation. */
-    INTERFACE_SUPER("#22", "MODERN", null, true, "3.1.16", false),
+    INTERFACE_SUPER("#22", "MODERN", null, true, "3.1.16", false, null),
 
     /** A local variable without {@code final}, read in an anonymous class: effectively final. */
-    EFFECTIVELY_FINAL("#24", "MODERN", null, true, "3.1.17", false),
+    EFFECTIVELY_FINAL("#24", "MODERN", null, true, "3.1.17", false, null),
 
     /** {@code final class Box {}} in a method: a local class with a modifier. */
-    LOCAL_CLASS_MODIFIER("#60", "MODERN", null, true, "3.1.17", false),
+    LOCAL_CLASS_MODIFIER("#60", "MODERN", null, true, "3.1.17", false, null),
 
     /**
      * {@code Boolean z = v; boolean x = z || true;} for a {@code BOOLEAN}
      * operand: javac throws a {@code NullPointerException} if the operand is
      * {@code NULL}, Janino gives {@code true}.
      */
-    NULL_BOOLEAN_OR("S-01", "PROBE", DataType.BOOLEAN, true, "0", true),
+    NULL_BOOLEAN_OR("S-01", "PROBE", DataType.BOOLEAN, true, "0", true, "3.2.0"),
 
     /**
      * {@code f(v)} with {@code f(Object)} and {@code f(int...)} for an
      * {@code INT} operand: javac invokes {@code f(Object)}, Janino
      * {@code f(int...)}; the result is {@code "Object"} or {@code "int..."}.
      */
-    VARARGS_BEFORE_BOXING("S-02", "PROBE", DataType.INT, true, "0", true),
+    VARARGS_BEFORE_BOXING("S-02", "PROBE", DataType.INT, true, "0", true, "3.2.0"),
 
     /**
      * {@code Object x = (v & 1) == 0 ? b : 5;} with {@code Byte b = v} for a
@@ -79,28 +79,28 @@ public enum LanguageFeature {
      * and {@code Integer} with Janino; the result is its name, a colon and
      * the value.
      */
-    CONDITIONAL_BOXED_TYPE("S-04", "PROBE", DataType.BYTE, true, "0", true),
+    CONDITIONAL_BOXED_TYPE("S-04", "PROBE", DataType.BYTE, true, "0", true, "3.2.0"),
 
     /**
      * {@code ("a" + (true ? "b" : s)) == "ab"} for a {@code STRING} operand
      * {@code s}: {@code false} with javac, {@code true} with Janino, which
      * folds the concatenation into an interned constant.
      */
-    CONSTANT_CONDITIONAL("S-12", "PROBE", DataType.STRING, true, "0", true),
+    CONSTANT_CONDITIONAL("S-12", "PROBE", DataType.STRING, true, "0", true, "3.2.0"),
 
     /**
      * {@code f(new int[] {v})} with {@code f(Object)} and {@code f(int...)}
      * for an {@code INT} operand: javac invokes {@code f(int...)}, Janino
      * {@code f(Object)}; the result is {@code "int..."} or {@code "Object"}.
      */
-    VARARGS_ARRAY("S-13", "PROBE", DataType.INT, true, "0", true),
+    VARARGS_ARRAY("S-13", "PROBE", DataType.INT, true, "0", true, "3.2.0"),
 
     /**
      * {@code byte b = 1 << 2;} plus an {@code INT} operand: javac folds the
      * shift into a constant, Janino rejects the assignment because it does
      * not; the result is {@code v + 4}.
      */
-    CONSTANT_SHIFT("D-01", "PROBE", DataType.INT, true, null, false),
+    CONSTANT_SHIFT("D-01", "PROBE", DataType.INT, true, null, false, null),
 
     /**
      * {@code f(v, new int[] {1, 2})} with {@code f(Integer i, Object... a)}
@@ -109,7 +109,7 @@ public enum LanguageFeature {
      * the array like javac since. The result is {@code i + a.length}, i.e.
      * {@code v + 1}.
      */
-    VARARGS_ARRAY_ELEMENT("D-08", "PROBE", DataType.INT, true, "3.1.20", false);
+    VARARGS_ARRAY_ELEMENT("D-08", "PROBE", DataType.INT, true, "3.1.20", false, null);
 
     /** The language profiles that consist of features, in the order of the reports. */
     public static final List<String> PROFILES = List.of("LENIENT", "MODERN", "PROBE");
@@ -120,6 +120,7 @@ public enum LanguageFeature {
     private final boolean javacAccepts;
     private final String janinoSince;
     private final boolean janinoDiffers;
+    private final String compliantSince;
 
     /**
      * @param id the ID in the register of deviations, or the issue that added
@@ -132,15 +133,20 @@ public enum LanguageFeature {
      * @param janinoDiffers whether a Janino that accepts it computes the
      *        result of {@link Semantics#JANINO} (the compatibility mode of
      *        janino-lts keeps the behavior of 3.1.12); otherwise that of javac
+     * @param compliantSince the first version of janino-lts whose compliance
+     *        mode treats the construct like javac, as the register of
+     *        deviations states it; {@code null} while that is open, and the
+     *        compliance mode behaves like the compatibility mode
      */
     LanguageFeature(String id, String profile, DataType operandType, boolean javacAccepts, String janinoSince,
-            boolean janinoDiffers) {
+            boolean janinoDiffers, String compliantSince) {
         this.id = id;
         this.profile = profile;
         this.operandType = operandType;
         this.javacAccepts = javacAccepts;
         this.janinoSince = janinoSince;
         this.janinoDiffers = janinoDiffers;
+        this.compliantSince = compliantSince;
     }
 
     /** How a compiler treats a construct. */
@@ -157,7 +163,10 @@ public enum LanguageFeature {
     public enum Semantics {
         /** As javac compiles the construct: the reference. */
         JAVAC,
-        /** As Janino 3.1.12 compiles it, and the compatibility mode of janino-lts. */
+        /**
+         * As Janino 3.1.12 compiles it, and the compatibility mode of
+         * janino-lts; the compliance mode too, until it corrects the feature.
+         */
         JANINO
     }
 
@@ -218,6 +227,28 @@ public enum LanguageFeature {
             return Behavior.REJECT;
         }
         return janinoDiffers ? Behavior.JANINO : Behavior.JAVAC;
+    }
+
+    /**
+     * Returns the first version of janino-lts whose compliance mode treats
+     * the construct like javac, or {@code null} if that is open.
+     */
+    public String compliantSince() {
+        return compliantSince;
+    }
+
+    /**
+     * Returns how a version of janino-lts treats the construct in its
+     * compliance mode: like javac since {@link #compliantSince()}, otherwise
+     * like in its default mode.
+     *
+     * @param version the version, e.g. {@code 3.2.0-SNAPSHOT}
+     */
+    public Behavior complianceBehavior(String version) {
+        if (compliantSince != null && compareVersions(version, compliantSince) >= 0) {
+            return javacBehavior();
+        }
+        return janinoBehavior(version);
     }
 
     /** Returns the features of a profile, in declaration order. */

@@ -33,7 +33,7 @@ import java.util.Set;
  * directory.
  * <p>
  * Arguments: {@code --seeds 1..200 --styles all --profiles STRICT
- * --variants one [--negatives] [--try-jumps] [--threads 1] --out <dir>}.
+ * --variants one [--negatives] [--try-jumps] [--compliance] [--threads 1] --out <dir>}.
  */
 public final class CampaignBatchMain {
 
@@ -41,11 +41,11 @@ public final class CampaignBatchMain {
     }
 
     public static void main(String[] argv) throws Exception {
-        Args args = new Args(argv, Set.of("negatives", "try-jumps"));
+        Args args = new Args(argv, Set.of("negatives", "try-jumps", "compliance"));
         Campaign.Settings settings = FuzzCommand.settings(args);
         Path dir = Path.of(args.get("out", "."));
         Files.createDirectories(dir);
-        try (Backends backends = new Backends()) {
+        try (Backends backends = new Backends(args.flag("compliance"))) {
             Campaign.Result result = Campaign.run(backends.runner(), RandomPlans.withDefaults(),
                     Campaign.units(settings), args.getInt("threads", 1));
             StringBuilder summary = new StringBuilder();

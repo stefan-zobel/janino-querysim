@@ -7,8 +7,9 @@
 #    with "candidate-ref", it builds janino-lts/janino at that ref with JDK 25 and installs it into the local Maven
 #    repository. It assembles "dist": qsim.jar and, next to it, the directories janino-baseline and janino-candidate
 #    with the JARs of each version and the adapter, and creates the matrix of the following jobs.
-#  * "correctness" runs the suites smoke, regression and campaign that "suites" names, on each Java version. It fails
-#    on a difference that the ledger of the candidate does not explain and on an orphaned ledger entry.
+#  * "correctness" runs the suites smoke, regression and campaign that "suites" names, on each Java version, with
+#    "javac-compliance" also the candidate in its compliance mode (JLTS-C). It fails on a difference that the ledger
+#    of the candidate does not explain and on an orphaned ledger entry.
 #  * "performance" runs the measurements ("bench" in "suites"), one job per Java version and replica, each on a VM of
 #    its own; it uploads only raw data.
 #  * "report" combines the raw data of all replicas per Java version, writes the job summary and uploads the reports,
@@ -38,6 +39,10 @@ on:
         description: Or build the candidate from this branch, tag or commit of janino-lts/janino (e.g. master); overrides candidate
         type: string
         default: ''
+      javac-compliance:
+        description: Also check the candidate in its compliance mode (JLTS-C) in smoke, regression and campaign; needs a candidate of the development line, e.g. candidate-ref master
+        type: boolean
+        default: false
       suites:
         description: Comma-separated, from smoke, regression, campaign, bench
         type: string
@@ -87,6 +92,7 @@ env:
   QSIM_BASELINE: ${{ inputs.baseline }}
   QSIM_CANDIDATE: ${{ inputs.candidate }}
   QSIM_CANDIDATE_REF: ${{ inputs.candidate-ref }}
+  QSIM_JAVAC_COMPLIANCE: ${{ inputs.javac-compliance }}
   QSIM_SUITES: ${{ inputs.suites }}
   QSIM_JAVA: ${{ inputs.java }}
   QSIM_SEEDS: ${{ inputs.seeds }}
@@ -119,6 +125,7 @@ jobs:
         run: >
           python3 .github/qsim/qsim_ci.py matrix --java "$QSIM_JAVA" --replicas "$QSIM_REPLICAS"
           --suites "$QSIM_SUITES" --modes "$QSIM_MODES" --measurements "$QSIM_MEASUREMENTS"
+          --candidate "$QSIM_CANDIDATE" --candidate-ref "$QSIM_CANDIDATE_REF" --javac-compliance "$QSIM_JAVAC_COMPLIANCE"
           >> "$GITHUB_OUTPUT"
 
       - name: Check out janino-lts/janino at candidate-ref
@@ -222,7 +229,7 @@ jobs:
       - name: Run the suites
         run: >
           python3 .github/qsim/qsim_ci.py suites --jar dist/qsim.jar --suites "$QSIM_SUITES" --seeds "$QSIM_SEEDS"
-          "--campaign-options=$QSIM_CAMPAIGN_OPTIONS" --out correctness
+          "--campaign-options=$QSIM_CAMPAIGN_OPTIONS" --javac-compliance "$QSIM_JAVAC_COMPLIANCE" --out correctness
 
       - uses: actions/upload-artifact@v7
         if: always()

@@ -13,7 +13,9 @@ qsim generates Java code in the style of query engines, compiles it with two ver
 The baseline is Janino 3.1.12 (`org.codehaus.janino:janino`), the version that Spark, Calcite
 and Flink use. The candidate is a version of janino-lts (`io.github.janino-lts:janino`), by
 default the last released 3.1.x version. A backend is named by its ID: `JAVAC`, `J3112` for the
-baseline, `JLTS` for the candidate and `INTERP` for the interpreter.
+baseline, `JLTS` for the candidate and `INTERP` for the interpreter. A candidate of the
+development line (`master`) can also run in its compliance mode (`JaninoOption.JAVAC_COMPLIANCE`),
+as `JLTS-C`.
 
 The generated code takes four shapes, one per *style*:
 
@@ -59,8 +61,8 @@ one `commons-compiler-*.jar` and one `qsim-backend-janino-*.jar`.
 ## Command line
 
 ```
-java -jar qsim.jar check     --suite smoke|regression [--out <dir>]
-java -jar qsim.jar fuzz      [--seeds 1..2000] [--styles all] [--profiles STRICT|all] [--negatives] [--try-jumps] [--out <dir>]
+java -jar qsim.jar check     --suite smoke|regression [--compliance] [--out <dir>]
+java -jar qsim.jar fuzz      [--seeds 1..2000] [--styles all] [--profiles STRICT|all] [--negatives] [--try-jumps] [--compliance] [--out <dir>]
 java -jar qsim.jar minimize  --unit "<seed> <style> <profile> <variant>" --pair J3112:JLTS [--out <dir>]
 java -jar qsim.jar dump      --unit "<seed> <style> <profile> <variant>" | --scenario Q_AGG --style WHOLE_STAGE
 java -jar qsim.jar bench     [--mode xint,tiered] [--forks 3] [--rounds 40] [--points <patterns>] [P1 ... P10]
@@ -86,6 +88,13 @@ not), `LOCATION` (other position of a compile error), `BYTES` (other class files
 between `INTERP` and `JAVAC` is a defect of qsim. Differences that a language profile expects,
 e.g. a feature that javac accepts and Janino does not, are counted separately and are no findings.
 
+With `--compliance`, every unit also runs with `JLTS-C`, the candidate in its compliance mode, and
+the pair `JAVAC:JLTS-C` shows what that mode does not yet correct. Its expectation follows the
+catalog of language features: like javac for the features that the compliance mode of the
+candidate's version corrects (S-01, S-02, S-04, S-12 and S-13 since 3.2.0), otherwise like
+`JLTS`. The option needs a candidate of the development line; with a 3.1 version, the command
+stops with an error.
+
 A campaign runs every seed in the variant `BASE` and in one *metamorphic variant*: the same plan,
 generated with other settings, e.g. without method splitting or with nested `try` statements.
 All variants of a seed must give the same result. `--variants all` runs all of them, `none` only
@@ -101,7 +110,8 @@ one file per development line of the candidate: `3.1.x` for 3.1 versions, `maste
 others. Each entry has a unit key (with `*`), a pair, a kind, an ID, a note, optionally feature
 tags and optionally the version that fixed the difference. An entry with such a version applies
 only to candidates before it (a snapshot of the version counts as fixed), so that the ledger of a
-line serves its releases before and after the fix. A run fails on a difference without an entry
+line serves its releases before and after the fix. Entries of the pair `JAVAC:JLTS-C` apply only
+to runs with `--compliance`. A run fails on a difference without an entry
 and on an entry whose unit ran without the difference. An ID `#N` is an issue of janino-lts/janino; the reports print it as
 `janino-lts/janino#N`, so that it does not refer to the issues of the repository that runs qsim.
 Other IDs, e.g. `S-04`, are entries of the register of deviations of janino-lts. Change the
@@ -162,6 +172,7 @@ The workflow "qsim" (`.github/workflows/qsim.yml`) runs only when started manual
 | `baseline` | A version of `org.codehaus.janino:janino` on Maven Central | `3.1.12` |
 | `candidate` | `latest-3.1.x` or a version of `io.github.janino-lts:janino` on Maven Central | `latest-3.1.x` |
 | `candidate-ref` | Build the candidate from this branch, tag or commit of janino-lts/janino instead, e.g. `master` | empty |
+| `javac-compliance` | Also run the candidate in its compliance mode (`JLTS-C`) in `smoke`, `regression` and `campaign`; needs a candidate of the development line, e.g. `candidate-ref` `master` | `false` |
 | `suites` | From `smoke`, `regression`, `campaign`, `bench` | `smoke,regression` |
 | `java` | Java versions that run qsim, from 21 and 25 | `21` |
 | `seeds` | Seed range of `campaign` | `1..2000` |
@@ -196,7 +207,9 @@ Environment of a performance report.
    java -cp "qsim.jar:janino-3.1.19.jar:commons-compiler-3.1.19.jar" Repro.java
    ```
 
-   (on Windows with `;` instead of `:`). Run it once with each Janino version.
+   (on Windows with `;` instead of `:`). Run it once with each Janino version. For a difference
+   of the pair `JAVAC:JLTS-C`, the command sets `-Dorg.codehaus.janino.javacCompliance=true`, which
+   switches every compiler of the development line to its compliance mode.
 3. Without a reproducer, or to minimize again:
 
    ```
@@ -204,6 +217,8 @@ Environment of a performance report.
    java -jar qsim.jar minimize --unit "4711 WHOLE_STAGE STRICT BASE" --pair J3112:JLTS
    java -jar qsim.jar fuzz     --seeds 4711 --profiles all --negatives
    ```
+
+   `minimize` with `--pair JAVAC:JLTS-C` runs the candidate in its compliance mode as well.
 
    A unit is fully defined by seed, style, profile, variant and, for a negative program, its
    mutation; the same arguments always generate the same code and data.

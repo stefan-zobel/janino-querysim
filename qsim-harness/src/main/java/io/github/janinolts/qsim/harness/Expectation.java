@@ -30,30 +30,37 @@ import java.util.stream.Collectors;
  * language feature expects what the catalog of features says, for the
  * versions of the baseline and the candidate: a feature that a version of
  * Janino supports only since a later version is expected to be rejected. A
- * negative program is expected to be rejected by every backend.
+ * negative program is expected to be rejected by every backend. The
+ * expectation of the candidate in its compliance mode ({@code JLTS-C})
+ * follows the catalog as well: like javac for a feature that the compliance
+ * mode of the candidate's version corrects, otherwise like the candidate.
  *
  * @param javac the behavior of javac
  * @param baseline the behavior of the baseline
  * @param candidate the behavior of the candidate
+ * @param compliance the behavior of the candidate in its compliance mode
  * @param reason the IDs of the features or the mutation, e.g. {@code S-01} or
  *        {@code negative:UNKNOWN_NAME}; {@code null} for a unit of the profile
  *        {@code STRICT}
  */
-public record Expectation(Behavior javac, Behavior baseline, Behavior candidate, String reason) {
+public record Expectation(Behavior javac, Behavior baseline, Behavior candidate, Behavior compliance,
+        String reason) {
 
     /** The expectation of a unit of the profile {@code STRICT}: every backend computes the reference. */
-    public static final Expectation STRICT = new Expectation(Behavior.JAVAC, Behavior.JAVAC, Behavior.JAVAC, null);
+    public static final Expectation STRICT = new Expectation(Behavior.JAVAC, Behavior.JAVAC, Behavior.JAVAC, Behavior.JAVAC,
+            null);
 
     public Expectation {
         Objects.requireNonNull(javac, "javac");
         Objects.requireNonNull(baseline, "baseline");
         Objects.requireNonNull(candidate, "candidate");
+        Objects.requireNonNull(compliance, "compliance");
     }
 
     /** Returns the expectation of a unit for the given versions of the baseline and the candidate. */
     public static Expectation of(UnitCase unit, String baselineVersion, String candidateVersion) {
         if (unit.mutation() != null) {
-            return new Expectation(Behavior.REJECT, Behavior.REJECT, Behavior.REJECT,
+            return new Expectation(Behavior.REJECT, Behavior.REJECT, Behavior.REJECT, Behavior.REJECT,
                     "negative:" + unit.mutation());
         }
         List<LanguageFeature> features = Plans.features(unit.plan());
@@ -63,12 +70,14 @@ public record Expectation(Behavior javac, Behavior baseline, Behavior candidate,
         Behavior javac = Behavior.JAVAC;
         Behavior baseline = Behavior.JAVAC;
         Behavior candidate = Behavior.JAVAC;
+        Behavior compliance = Behavior.JAVAC;
         for (LanguageFeature f : features) {
             javac = combine(javac, f.javacBehavior());
             baseline = combine(baseline, f.janinoBehavior(baselineVersion));
             candidate = combine(candidate, f.janinoBehavior(candidateVersion));
+            compliance = combine(compliance, f.complianceBehavior(candidateVersion));
         }
-        return new Expectation(javac, baseline, candidate,
+        return new Expectation(javac, baseline, candidate, compliance,
                 features.stream().map(LanguageFeature::id).distinct().collect(Collectors.joining("+")));
     }
 
@@ -87,6 +96,7 @@ public record Expectation(Behavior javac, Behavior baseline, Behavior candidate,
 
     /** Tells whether a backend is expected to compute the result of Janino. */
     public boolean needsJaninoSemantics() {
-        return javac == Behavior.JANINO || baseline == Behavior.JANINO || candidate == Behavior.JANINO;
+        return javac == Behavior.JANINO || baseline == Behavior.JANINO || candidate == Behavior.JANINO
+                || compliance == Behavior.JANINO;
     }
 }

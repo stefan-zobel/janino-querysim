@@ -103,8 +103,9 @@ public final class CorrectnessReport {
 
         sb.append("| Backend | Version |\n| --- | --- |\n");
         DifferentialRunner.Backends b = run.backends();
-        for (var backend : List.of(b.javac(), b.baseline(), b.candidate())) {
-            sb.append("| `").append(backend.id()).append("` | ").append(backend.version()).append(" |\n");
+        for (var backend : b.all()) {
+            sb.append("| `").append(backend.id()).append("` | ").append(backend.version())
+                    .append(backend == b.compliance() ? " (compliance mode)" : "").append(" |\n");
         }
         sb.append("\nLedger: line `").append(run.ledger().line()).append("`, ")
                 .append(run.ledger().entries().size()).append(" entries.\n\n");

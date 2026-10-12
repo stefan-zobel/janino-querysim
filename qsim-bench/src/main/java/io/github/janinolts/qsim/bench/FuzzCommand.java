@@ -60,13 +60,14 @@ import java.util.stream.Stream;
  * The command {@code fuzz}: a campaign of random plans in child JVMs.
  * <p>
  * {@code fuzz [--seeds 1..2000] [--styles all] [--profiles STRICT]
- * [--variants one] [--negatives] [--try-jumps] [--batch 200] [--parallel <cores/2>]
+ * [--variants one] [--negatives] [--try-jumps] [--compliance] [--batch 200] [--parallel <cores/2>]
  * [--threads 1] [--timeout-minutes 30] [--minimize-seconds 120]
  * [--max-reproducers 50] [--no-minimize] [--out <dir>]}
  * <p>
  * With {@code --try-jumps}, every seed, style and profile also runs in the
  * variant {@code TRY_JUMPS}, besides {@code BASE} and those of
- * {@code --variants}. The seeds are split into batches; each batch runs in a child JVM with a
+ * {@code --variants}. With {@code --compliance}, the candidate also runs in
+ * its compliance mode ({@code JLTS-C}). The seeds are split into batches; each batch runs in a child JVM with a
  * time limit, and up to {@code parallel} batches run at once. A batch whose
  * JVM exceeds the time limit or ends abnormally is split and run again,
  * down to single seeds, which are then reported as {@code TIMEOUT} or
@@ -106,8 +107,12 @@ final class FuzzCommand {
     }
 
     static int run(String[] argv) throws Exception {
-        Args args = new Args(argv, Set.of("negatives", "try-jumps", "no-minimize"));
+        Args args = new Args(argv, Set.of("negatives", "try-jumps", "compliance", "no-minimize"));
         Campaign.Settings settings = settings(args);
+        if (args.flag("compliance")) {
+            // Fails before the batches if the candidate has no compliance mode.
+            new Backends(true).close();
+        }
         int batch = args.getInt("batch", 200);
         int parallel = args.getInt("parallel", Math.max(1, Runtime.getRuntime().availableProcessors() / 2));
         Path out = Path.of(args.get("out", Path.of("target", "qsim-reports",
@@ -158,11 +163,12 @@ final class FuzzCommand {
             }
         }
 
-        try (Backends backends = new Backends()) {
+        try (Backends backends = new Backends(args.flag("compliance"))) {
             Ledger ledger = backends.ledger();
             List<UnitOutcome> outcomes = summaries.stream().map(CampaignFiles.Summary::outcome).toList();
             List<String> notes = new ArrayList<>();
-            notes.add("Settings: " + settings + "; " + summaries.size() + " units in "
+            notes.add("Settings: " + settings + (args.flag("compliance") ? ", compliance mode" : "") + "; "
+                    + summaries.size() + " units in "
                     + Duration.ofNanos(System.nanoTime() - started).toSeconds() + " s.");
             notes.addAll(failures);
             notes.addAll(inconsistencies);
@@ -211,6 +217,9 @@ final class FuzzCommand {
         }
         if (settings.negatives()) {
             command.add("--negatives");
+        }
+        if (args.flag("compliance")) {
+            command.add("--compliance");
         }
         Process process = new ProcessBuilder(command).redirectErrorStream(true)
                 .redirectOutput(dir.resolve(CampaignFiles.LOG).toFile()).start();

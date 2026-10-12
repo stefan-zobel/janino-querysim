@@ -2,7 +2,8 @@
 #
 # One entry per line, five to seven tab-separated columns:
 #   unit key    workload/style/profile/configHash; '*' matches any text
-#   pair        JAVAC:JLTS or J3112:JLTS (INTERP:JAVAC is a defect of qsim and cannot be entered)
+#   pair        JAVAC:JLTS or J3112:JLTS (INTERP:JAVAC is a defect of qsim and cannot be entered), or
+#               JAVAC:JLTS-C for the candidate in its compliance mode; such an entry applies only to runs with it
 #   kind        WRONG, INVALID, REJECTED, BYTES, LOCATION or ALLOC
 #   id          an issue number (#2) or an ID of the register of deviations (S-04)
 #   note        a short explanation

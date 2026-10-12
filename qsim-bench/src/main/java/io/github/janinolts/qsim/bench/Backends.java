@@ -17,6 +17,7 @@
 package io.github.janinolts.qsim.bench;
 
 import io.github.janinolts.qsim.backend.javac.JavacBackend;
+import io.github.janinolts.qsim.harness.ComplianceBackend;
 import io.github.janinolts.qsim.harness.DifferentialRunner;
 import io.github.janinolts.qsim.harness.IsolatedBackend;
 import io.github.janinolts.qsim.harness.JaninoInstallation;
@@ -32,30 +33,57 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * The three compiler backends of the correctness commands: javac, the
- * baseline and the candidate, each Janino version in a class loader of its
- * own; closing releases the class loaders.
+ * The compiler backends of the correctness commands: javac, the baseline and
+ * the candidate, each Janino version in a class loader of its own, and on
+ * request the candidate in its compliance mode; closing releases the class
+ * loaders.
  */
 final class Backends implements AutoCloseable {
 
     private final IsolatedBackend baseline;
     private final IsolatedBackend candidate;
+    private final boolean compliance;
     private final DifferentialRunner runner;
 
     Backends() {
+        this(false);
+    }
+
+    /**
+     * Loads the backends.
+     *
+     * @param compliance whether to include the candidate in its compliance
+     *        mode ({@code JLTS-C})
+     * @throws IllegalArgumentException if the compliance mode is requested
+     *         for a candidate that does not have it
+     */
+    Backends(boolean compliance) {
         this.baseline = JaninoInstallation.baseline().load();
         this.candidate = JaninoInstallation.candidate().load();
-        this.runner = new DifferentialRunner(new DifferentialRunner.Backends(new JavacBackend(), baseline, candidate),
-                Backends.class.getClassLoader());
+        this.compliance = compliance;
+        try {
+            this.runner = new DifferentialRunner(new DifferentialRunner.Backends(new JavacBackend(), baseline,
+                    candidate, compliance ? new ComplianceBackend(candidate) : null), Backends.class.getClassLoader());
+        } catch (RuntimeException e) {
+            try {
+                close();
+            } catch (IOException x) {
+                e.addSuppressed(x);
+            }
+            throw e;
+        }
     }
 
     DifferentialRunner runner() {
         return runner;
     }
 
-    /** Returns the ledger of the candidate: the ledger of its development line, with the entries that apply to it. */
+    /**
+     * Returns the ledger of the candidate: the ledger of its development line,
+     * with the entries that apply to it and to the backends of the run.
+     */
     Ledger ledger() {
-        return Ledger.forVersion(candidate.version());
+        return Ledger.forVersion(candidate.version(), compliance);
     }
 
     /**

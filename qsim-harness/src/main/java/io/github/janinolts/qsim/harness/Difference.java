@@ -36,7 +36,12 @@ public record Difference(UnitKey key, Pair pair, Kind kind, Assessment assessmen
         /** javac and the candidate: deviation from javac. */
         JAVAC_JLTS("JAVAC:JLTS"),
         /** The baseline and the candidate: compatibility or regression. */
-        J3112_JLTS("J3112:JLTS");
+        J3112_JLTS("J3112:JLTS"),
+        /**
+         * javac and the candidate in its compliance mode: what the compliance
+         * mode does not yet correct; only in runs with the compliance mode.
+         */
+        JAVAC_JLTSC("JAVAC:JLTS-C");
 
         private final String label;
 
@@ -76,7 +81,12 @@ public record Difference(UnitKey key, Pair pair, Kind kind, Assessment assessmen
         ALLOC
     }
 
-    /** What a difference means. */
+    /**
+     * What a difference means. In the pair {@code JAVAC:JLTS-C}, the candidate
+     * in its default mode takes the role of the baseline: the compliance mode
+     * deviates like it ({@code DEVIATION}), or deviates where it does not
+     * ({@code REGRESSION}).
+     */
     public enum Assessment {
         /** The interpreter and javac disagree: a defect of qsim, to be fixed first. */
         QSIM_DEFECT,

@@ -33,7 +33,11 @@ import java.util.Set;
  * The command {@code check}: runs a suite and reconciles it with the ledger
  * of the candidate.
  * <p>
- * {@code check --suite smoke|regression [--out <dir>]}
+ * {@code check --suite smoke|regression [--compliance] [--out <dir>]}
+ * <p>
+ * With {@code --compliance}, the candidate also runs in its compliance mode
+ * ({@code JLTS-C}); that needs a candidate of the development line
+ * {@code master}.
  * <p>
  * The exit code is 0 if every difference is explained and no entry of the
  * ledger is orphaned.
@@ -44,11 +48,11 @@ final class CheckCommand {
     }
 
     static int run(String[] argv) throws Exception {
-        Args args = new Args(argv, Set.of());
+        Args args = new Args(argv, Set.of("compliance"));
         String suite = args.get("suite", "smoke");
         Path out = Path.of(args.get("out", Path.of("target", "qsim-reports",
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + "-" + suite).toString()));
-        try (Backends backends = new Backends()) {
+        try (Backends backends = new Backends(args.flag("compliance"))) {
             Ledger ledger = backends.ledger();
             List<UnitCase> units = switch (suite) {
                 case "smoke" -> Workloads.smoke();

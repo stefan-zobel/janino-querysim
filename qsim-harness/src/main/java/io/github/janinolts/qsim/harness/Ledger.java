@@ -47,7 +47,9 @@ import java.util.regex.Pattern;
  * An entry with feature tags applies only to units that have all of them: one
  * entry covers the random units of a code pattern, and a run without such a
  * unit does not orphan it. An entry with a fixed version applies only to
- * candidates before that version, see {@link #applicableTo(String)}.
+ * candidates before that version, see {@link #applicableTo(String)}. The
+ * entries of the pair {@code JAVAC:JLTS-C} apply only to runs with the
+ * compliance mode, see {@link #forVersion(String, boolean)}.
  * <p>
  * A check fails in both directions: on a difference that no entry explains,
  * and on an entry that explains no difference although its unit ran. The
@@ -191,7 +193,26 @@ public record Ledger(String line, List<Ledger.Entry> entries) {
      * ledger of its development line, with the entries that apply to it.
      */
     public static Ledger forVersion(String candidateVersion) {
-        return forLine(lineOf(candidateVersion)).applicableTo(candidateVersion);
+        return forVersion(candidateVersion, false);
+    }
+
+    /**
+     * Loads the ledger of a candidate version from the resources of qsim, as
+     * {@link #forVersion(String)} does; without the compliance mode, also
+     * without the entries of the pair {@code JAVAC:JLTS-C}, which every run
+     * without it would orphan.
+     *
+     * @param compliance whether the run includes the candidate in its
+     *        compliance mode
+     */
+    public static Ledger forVersion(String candidateVersion, boolean compliance) {
+        Ledger ledger = forLine(lineOf(candidateVersion)).applicableTo(candidateVersion);
+        return compliance ? ledger : ledger.withoutCompliance();
+    }
+
+    /** Returns the ledger without the entries of the pair {@code JAVAC:JLTS-C}. */
+    public Ledger withoutCompliance() {
+        return new Ledger(line, entries.stream().filter(e -> e.pair() != Difference.Pair.JAVAC_JLTSC).toList());
     }
 
     /**

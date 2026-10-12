@@ -38,17 +38,20 @@ public final class Main {
               aggregate  [--delta 0.02] [--q 0.05] [--allocation-limit 1.01] [--out <dir>] <dir>...
                          Combines the raw data of all replicas and writes report-performance.md,
                          for P2 also scaling/*.csv and scaling/*.svg.
-              check      --suite smoke|regression [--out <dir>]
-                         Runs a suite and reconciles it with the ledger of the candidate.
+              check      --suite smoke|regression [--compliance] [--out <dir>]
+                         Runs a suite and reconciles it with the ledger of the candidate;
+                         with --compliance also the candidate in its compliance mode (JLTS-C).
               fuzz       [--seeds 1..2000] [--styles all] [--profiles STRICT|all|LENIENT,...]
-                         [--variants none|one|all] [--negatives] [--try-jumps] [--batch 200] [--parallel <n>]
+                         [--variants none|one|all] [--negatives] [--try-jumps] [--compliance]
+                         [--batch 200] [--parallel <n>]
                          [--threads 1] [--timeout-minutes 30] [--minimize-seconds 120]
                          [--max-reproducers 50] [--no-minimize] [--out <dir>]
                          A campaign of random plans in child JVMs, with minimized reproducers.
               minimize   (--unit "<seed> <style> <profile> <variant> [<mutation>]" | --seed <n>
                          --style <style> [--profile] [--variant] [--mutation]) --pair <pair>
                          [--kind <kind>] [--seconds 300] [--out <dir>]
-                         Minimizes a unit with a difference and writes its reproducer.
+                         Minimizes a unit with a difference and writes its reproducer
+                         (with the pair JAVAC:JLTS-C in the compliance mode).
               dump       (--unit "..." | --seed <n> --style <style> ... | --scenario <name> --style <style>
                          [--size S] [--layout ROWS] [--ansi]) [--out dump]
                          Writes the generated source text of a unit.

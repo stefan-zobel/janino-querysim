@@ -53,6 +53,9 @@ import java.util.List;
  */
 public final class Reproducer {
 
+    /** The system property of janino-lts that turns on the compliance mode of every compiler. */
+    static final String COMPLIANCE_PROPERTY = "org.codehaus.janino.javacCompliance";
+
     private Reproducer() {
     }
 
@@ -126,7 +129,10 @@ public final class Reproducer {
                     .append(d.detail().replace('\n', ' ')).append('\n');
         }
         sb.append("\nRun in this directory, with the JARs of the Janino version to test:\n");
-        sb.append("  java -cp \"").append(classPath).append("\" Repro.java\n");
+        // The system property switches every compiler of the development line to its compliance mode.
+        String compliance = difference.pair() == Difference.Pair.JAVAC_JLTSC ? " -D" + COMPLIANCE_PROPERTY + "=true"
+                : "";
+        sb.append("  java").append(compliance).append(" -cp \"").append(classPath).append("\" Repro.java\n");
         return sb.toString();
     }
 

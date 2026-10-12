@@ -36,7 +36,8 @@ import java.util.Set;
  * [--mutation <m>]) --pair J3112:JLTS [--kind WRONG] [--seconds 300]
  * [--out repro/<key>]}
  * <p>
- * Without {@code --kind}, the first difference of the pair is kept. The exit
+ * Without {@code --kind}, the first difference of the pair is kept. With the
+ * pair {@code JAVAC:JLTS-C}, the candidate also runs in its compliance mode. The exit
  * code is 1 if the unit shows no such difference.
  */
 final class MinimizeCommand {
@@ -54,7 +55,7 @@ final class MinimizeCommand {
             System.err.println("The style " + random.style() + " does not fit the plan of seed " + random.seed());
             return 1;
         }
-        try (Backends backends = new Backends()) {
+        try (Backends backends = new Backends(pair == Difference.Pair.JAVAC_JLTSC)) {
             UnitOutcome outcome = backends.runner().run(unit);
             Difference first = outcome.differences().stream()
                     .filter(d -> d.pair() == pair && (kindName == null || d.kind().name().equals(kindName)))

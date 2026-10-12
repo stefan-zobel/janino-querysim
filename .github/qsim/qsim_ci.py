@@ -23,10 +23,14 @@ Subcommands:
       on Maven Central, anything else is taken as the version. Prints "version=..." and "group=..." for
       $GITHUB_OUTPUT; versions up to 3.1.14 have the group ID org.codehaus.janino, later ones io.github.janino-lts.
   matrix --java 21,25 --replicas 6 --suites smoke,regression --modes xint,tiered --measurements P1,P8
-      Checks the inputs and prints the matrix of the jobs for $GITHUB_OUTPUT.
-  suites --jar qsim.jar --suites smoke,regression[,campaign] --seeds 1..2000 [--campaign-options=...] --out <dir>
+         [--candidate latest-3.1.x] [--candidate-ref master] [--javac-compliance true|false]
+      Checks the inputs and prints the matrix of the jobs for $GITHUB_OUTPUT. The compliance mode needs a candidate
+      of the development line: a candidate-ref, or a candidate that is not a 3.1 version.
+  suites --jar qsim.jar --suites smoke,regression[,campaign] --seeds 1..2000 [--campaign-options=...]
+         [--javac-compliance true|false] --out <dir>
       Runs the correctness suites, each into <dir>/<suite>, and writes <dir>/status.tsv; the exit code is 1 if a
-      suite fails. The campaign options are further options of "fuzz", e.g. "--try-jumps".
+      suite fails. The campaign options are further options of "fuzz", e.g. "--try-jumps". With javac-compliance,
+      the suites also run the candidate in its compliance mode ("--compliance").
   bench --jar qsim.jar --replica <name> --modes ... --measurements ... --forks 3 --rounds 40 [--points ...] --out <dir>
       Runs the measurements of one replica into <dir>/<replica> and writes <dir>/status.tsv.
   aggregate --jar qsim.jar --java 21,25 --artifacts <dir> --out <dir>
@@ -62,8 +66,8 @@ MAX_REPLICAS = 20
 MAX_REPORT_BYTES = 100_000
 
 # The inputs of the workflow, in the order of the summary.
-INPUTS = ["baseline", "candidate", "candidate-ref", "suites", "java", "seeds", "campaign-options", "measurements",
-          "points", "modes", "replicas", "forks", "rounds"]
+INPUTS = ["baseline", "candidate", "candidate-ref", "javac-compliance", "suites", "java", "seeds", "campaign-options",
+          "measurements", "points", "modes", "replicas", "forks", "rounds"]
 
 
 def version_key(version):
@@ -106,6 +110,10 @@ def cmd_coordinates(args):
     print("group=" + group_of(version))
 
 
+def is_true(value):
+    return value.strip().lower() == "true"
+
+
 def cmd_matrix(args):
     java = split(args.java)
     check_subset("java", java, JAVA_VERSIONS)
@@ -115,6 +123,10 @@ def cmd_matrix(args):
     if bench:
         check_subset("modes", split(args.modes), MODES)
         check_subset("measurements", split(args.measurements), MEASUREMENTS)
+    if is_true(args.javac_compliance) and not args.candidate_ref.strip() and (
+            args.candidate.strip() == "latest-3.1.x" or args.candidate.strip().startswith("3.1.")):
+        raise SystemExit("Input javac-compliance: the compliance mode needs a candidate of the development line, "
+                         "e.g. candidate-ref master; candidate is %s" % args.candidate)
     if not re.fullmatch(r"\d+", args.replicas.strip()) or not 1 <= int(args.replicas) <= MAX_REPLICAS:
         raise SystemExit("Input replicas: %s; allowed is 1 to %d" % (args.replicas, MAX_REPLICAS))
     print("java=" + json.dumps(java))
@@ -146,6 +158,8 @@ def cmd_suites(args):
                           "--out", str(out / suite)]
         else:
             command = ["java", "-jar", args.jar, "check", "--suite", suite, "--out", str(out / suite)]
+        if is_true(args.javac_compliance):
+            command.append("--compliance")
         code, seconds = run(command)
         status.append((suite, code, seconds))
     (out / "status.tsv").write_text("".join("%s\t%d\t%d\n" % s for s in status), encoding="utf-8")
@@ -285,6 +299,9 @@ def main():
     p.add_argument("--suites", required=True)
     p.add_argument("--modes", default="xint")
     p.add_argument("--measurements", default="P1")
+    p.add_argument("--candidate", default="latest-3.1.x")
+    p.add_argument("--candidate-ref", default="")
+    p.add_argument("--javac-compliance", default="false")
     p.set_defaults(func=cmd_matrix)
 
     p = commands.add_parser("suites")
@@ -292,6 +309,7 @@ def main():
     p.add_argument("--suites", required=True)
     p.add_argument("--seeds", default="1..2000")
     p.add_argument("--campaign-options", default="")
+    p.add_argument("--javac-compliance", default="false")
     p.add_argument("--out", required=True)
     p.set_defaults(func=cmd_suites)
 
